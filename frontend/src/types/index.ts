@@ -80,16 +80,6 @@ export interface Questionnaire {
   _count?: { questions: number; responses: number };
 }
 
-export interface CycleTracking {
-  id: string;
-  userId: string;
-  startDate: string;
-  endDate?: string;
-  painLevel?: number;
-  notes?: string;
-  createdAt: string;
-}
-
 export interface Match {
   id: string;
   date: string;
@@ -99,11 +89,23 @@ export interface Match {
   scoreHome?: number;
   scoreAway?: number;
   competition?: string;
+  formation?: string;
   notes?: string;
   createdAt: string;
   createdBy?: { firstName: string; lastName: string };
   playerStats?: PlayerMatchStat[];
-  _count?: { playerStats: number };
+  _count?: { playerStats: number; playerVotes?: number; ratings?: number };
+}
+
+export interface CycleTracking {
+  id: string;
+  userId: string;
+  startDate: string;
+  endDate?: string;
+  painLevel?: number;
+  notes?: string;
+  shareWithCoach?: boolean;
+  createdAt: string;
 }
 
 export interface PlayerMatchStat {

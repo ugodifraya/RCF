@@ -9,7 +9,7 @@ export default function HealthTracking() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editCycle, setEditCycle] = useState<CycleTracking | null>(null);
-  const [form, setForm] = useState({ startDate: '', endDate: '', painLevel: '', notes: '' });
+  const [form, setForm] = useState({ startDate: '', endDate: '', painLevel: '', notes: '', shareWithCoach: false });
   const [saving, setSaving] = useState(false);
 
   const load = () => {
@@ -23,14 +23,15 @@ export default function HealthTracking() {
     if (!form.startDate) return;
     setSaving(true);
     try {
+      const payload = { ...form, painLevel: form.painLevel || undefined };
       if (editCycle) {
-        await api.put(`/health/cycles/${editCycle.id}`, form);
+        await api.put(`/health/cycles/${editCycle.id}`, payload);
       } else {
-        await api.post('/health/cycles', form);
+        await api.post('/health/cycles', payload);
       }
       setShowForm(false);
       setEditCycle(null);
-      setForm({ startDate: '', endDate: '', painLevel: '', notes: '' });
+      setForm({ startDate: '', endDate: '', painLevel: '', notes: '', shareWithCoach: false });
       load();
     } catch { } finally { setSaving(false); }
   };
@@ -48,6 +49,7 @@ export default function HealthTracking() {
       endDate: c.endDate?.slice(0, 10) || '',
       painLevel: c.painLevel?.toString() || '',
       notes: c.notes || '',
+      shareWithCoach: (c as CycleTracking & { shareWithCoach?: boolean }).shareWithCoach || false,
     });
     setShowForm(true);
   };
@@ -67,14 +69,14 @@ export default function HealthTracking() {
           </h1>
           <p className="text-gray-500 text-sm mt-1">Notez vos périodes de règles et votre niveau de douleur</p>
         </div>
-        <button onClick={() => { setEditCycle(null); setForm({ startDate: '', endDate: '', painLevel: '', notes: '' }); setShowForm(true); }} className="btn-primary">
+        <button onClick={() => { setEditCycle(null); setForm({ startDate: '', endDate: '', painLevel: '', notes: '', shareWithCoach: false }); setShowForm(true); }} className="btn-primary">
           + Nouvelle entrée
         </button>
       </div>
 
       <div className="card bg-gradient-to-r from-pink-50 to-rose-50 border-pink-200">
         <p className="text-sm text-pink-800">
-          <strong>Confidentiel :</strong> Ces informations sont strictement privées et ne sont visibles que par vous. Elles vous permettent de mieux gérer votre forme sportive.
+          <strong>🔒 Confidentiel :</strong> Ces informations sont strictement privées. Vous pouvez choisir de partager votre état avec le coach (sans les détails de douleur) pour qu'il en tienne compte dans la gestion de l'équipe.
         </p>
       </div>
 
@@ -90,6 +92,7 @@ export default function HealthTracking() {
         <div className="space-y-3">
           {cycles.map(c => {
             const duration = c.endDate ? differenceInDays(new Date(c.endDate), new Date(c.startDate)) + 1 : null;
+            const shared = (c as CycleTracking & { shareWithCoach?: boolean }).shareWithCoach;
             return (
               <div key={c.id} className="card hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between">
@@ -101,23 +104,24 @@ export default function HealthTracking() {
                         {c.endDate && ` → ${format(new Date(c.endDate), 'd MMMM yyyy', { locale: fr })}`}
                       </p>
                       <div className="flex items-center gap-3 mt-1 flex-wrap">
-                        {duration && (
-                          <span className="text-xs text-gray-500">{duration} jour{duration > 1 ? 's' : ''}</span>
-                        )}
+                        {duration && <span className="text-xs text-gray-500">{duration} jour{duration > 1 ? 's' : ''}</span>}
                         {!c.endDate && <span className="badge-pink">En cours</span>}
                         {c.painLevel !== undefined && c.painLevel !== null && (
                           <div className="flex items-center gap-1.5">
                             <div className={`w-2 h-2 rounded-full ${painColors[c.painLevel]}`} />
-                            <span className="text-xs text-gray-600">
-                              Douleur {c.painLevel}/10 — {painLabel(c.painLevel)}
-                            </span>
+                            <span className="text-xs text-gray-600">Douleur {c.painLevel}/10 — {painLabel(c.painLevel)}</span>
                           </div>
+                        )}
+                        {shared && (
+                          <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                            👁 Partagé avec le coach
+                          </span>
                         )}
                       </div>
                       {c.notes && <p className="text-sm text-gray-500 mt-1 italic">"{c.notes}"</p>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <button onClick={() => openEdit(c)} className="text-gray-400 hover:text-gray-600 text-sm">Modifier</button>
                     <button onClick={() => handleDelete(c.id)} className="text-red-400 hover:text-red-600 text-sm">✕</button>
                   </div>
@@ -152,16 +156,28 @@ export default function HealthTracking() {
                   onChange={e => setForm(p => ({ ...p, painLevel: e.target.value }))}
                   className="w-full accent-pink-500" />
                 <div className="flex justify-between text-xs text-gray-400 mt-1">
-                  <span>Aucune douleur</span>
-                  <span>Douleur extrême</span>
+                  <span>Aucune douleur</span><span>Douleur extrême</span>
                 </div>
               </div>
               <div>
                 <label className="label">Notes</label>
-                <textarea className="input" rows={3} value={form.notes} onChange={set('notes')} placeholder="Comment vous sentez-vous ? Symptômes particuliers..." />
+                <textarea className="input" rows={2} value={form.notes} onChange={set('notes')} placeholder="Comment vous sentez-vous ?" />
+              </div>
+              <div className="border border-blue-100 rounded-xl p-4 bg-blue-50">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="checkbox" checked={form.shareWithCoach}
+                    onChange={e => setForm(p => ({ ...p, shareWithCoach: e.target.checked }))}
+                    className="mt-0.5 accent-blue-600" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Informer le coach</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Le coach verra seulement que vous êtes en période (sans les détails de douleur). Utile pour adapter les entraînements.
+                    </p>
+                  </div>
+                </label>
               </div>
               <div className="flex gap-2 pt-2">
-                <button onClick={handleSave} disabled={saving || !form.startDate} className="btn-primary flex-1">
+                <button onClick={handleSave} disabled={saving || !form.startDate} className="btn-primary flex-1" style={{ background: '#db2777' }}>
                   {saving ? 'Enregistrement...' : editCycle ? 'Modifier' : 'Enregistrer'}
                 </button>
                 <button onClick={() => setShowForm(false)} className="btn-secondary flex-1">Annuler</button>

@@ -8,6 +8,7 @@ import Events from './pages/Events';
 import Questionnaires from './pages/Questionnaires';
 import QuestionnaireDetail from './pages/QuestionnaireDetail';
 import HealthTracking from './pages/HealthTracking';
+import HealthDashboard from './pages/HealthDashboard';
 import Matches from './pages/Matches';
 import MatchDetail from './pages/MatchDetail';
 import Statistics from './pages/Statistics';
@@ -40,6 +41,7 @@ function AppRoutes() {
         <Route path="questionnaires" element={<Questionnaires />} />
         <Route path="questionnaires/:id" element={<QuestionnaireDetail />} />
         <Route path="health" element={<HealthTracking />} />
+        <Route path="health-dashboard" element={<HealthDashboard />} />
         <Route path="matches" element={<Matches />} />
         <Route path="matches/:id" element={<MatchDetail />} />
         <Route path="statistics" element={<Statistics />} />

@@ -16,6 +16,7 @@ const coachNav = [
   { to: '/', icon: '🏠', label: 'Tableau de bord' },
   { to: '/events', icon: '📅', label: 'Événements' },
   { to: '/questionnaires', icon: '📋', label: 'Questionnaires' },
+  { to: '/health-dashboard', icon: '🏥', label: 'Santé équipe' },
   { to: '/matches', icon: '⚽', label: 'Matchs' },
   { to: '/statistics', icon: '📊', label: 'Statistiques' },
   { to: '/players', icon: '👥', label: 'Joueuses' },
