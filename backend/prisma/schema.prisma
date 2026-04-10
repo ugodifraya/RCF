@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      String   @default("PLAYER")
+  position  String?
+  number    Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attendances            Attendance[]
+  questionnaireResponses QuestionnaireResponse[]
+  cycleTrackings         CycleTracking[]
+  matchStats             PlayerMatchStat[]
+  injuries               Injury[]
+  createdEvents          Event[]
+  createdQuestionnaires  Questionnaire[]
+  createdMatches         Match[]
+}
+
+model Event {
+  id          String    @id @default(cuid())
+  title       String
+  type        String
+  date        DateTime
+  endDate     DateTime?
+  location    String?
+  description String?
+  createdById String
+  createdAt   DateTime  @default(now())
+
+  createdBy   User         @relation(fields: [createdById], references: [id])
+  attendances Attendance[]
+}
+
+model Attendance {
+  id        String   @id @default(cuid())
+  userId    String
+  eventId   String
+  status    String   @default("PENDING")
+  note      String?
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id])
+  event Event @relation(fields: [eventId], references: [id])
+
+  @@unique([userId, eventId])
+}
+
+model Questionnaire {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  createdById String
+  createdAt   DateTime  @default(now())
+  dueDate     DateTime?
+  isActive    Boolean   @default(true)
+
+  createdBy User                    @relation(fields: [createdById], references: [id])
+  questions  Question[]
+  responses  QuestionnaireResponse[]
+}
+
+model Question {
+  id              String  @id @default(cuid())
+  questionnaireId String
+  text            String
+  type            String
+  options         String?
+  order           Int
+
+  questionnaire Questionnaire    @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  answers       QuestionAnswer[]
+}
+
+model QuestionnaireResponse {
+  id              String   @id @default(cuid())
+  questionnaireId String
+  userId          String
+  submittedAt     DateTime @default(now())
+
+  questionnaire Questionnaire    @relation(fields: [questionnaireId], references: [id])
+  user          User             @relation(fields: [userId], references: [id])
+  answers       QuestionAnswer[]
+
+  @@unique([questionnaireId, userId])
+}
+
+model QuestionAnswer {
+  id         String @id @default(cuid())
+  responseId String
+  questionId String
+  answer     String
+
+  response QuestionnaireResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question Question              @relation(fields: [questionId], references: [id])
+}
+
+model CycleTracking {
+  id        String    @id @default(cuid())
+  userId    String
+  startDate DateTime
+  endDate   DateTime?
+  painLevel Int?
+  notes     String?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Match {
+  id          String   @id @default(cuid())
+  date        DateTime
+  opponent    String
+  location    String?
+  homeAway    String   @default("HOME")
+  scoreHome   Int?
+  scoreAway   Int?
+  competition String?
+  notes       String?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  createdBy   User              @relation(fields: [createdById], references: [id])
+  playerStats PlayerMatchStat[]
+}
+
+model PlayerMatchStat {
+  id            String  @id @default(cuid())
+  matchId       String
+  userId        String
+  minutesPlayed Int     @default(0)
+  goals         Int     @default(0)
+  assists       Int     @default(0)
+  yellowCards   Int     @default(0)
+  redCards      Int     @default(0)
+  rating        Float?
+  starter       Boolean @default(false)
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([matchId, userId])
+}
+
+model Injury {
+  id          String    @id @default(cuid())
+  userId      String
+  type        String
+  startDate   DateTime
+  endDate     DateTime?
+  description String?
+  status      String    @default("ACTIVE")
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
