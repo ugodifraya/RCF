@@ -77,14 +77,14 @@ router.get('/dashboard', requireCoach, async (_req, res) => {
 
     const activeInjuries = await prisma.injury.findMany({
       where: { status: 'ACTIVE' },
-      include: { user: { select: { id: true, firstName: true, lastName: true, position: true } } },
+      include: { user: { select: { id: true, firstName: true, lastName: true, position: true, avatarUrl: true } } },
       orderBy: { startDate: 'desc' },
     });
 
     const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
     const recentInjuries = await prisma.injury.findMany({
       where: { createdAt: { gte: sevenDaysAgo } },
-      include: { user: { select: { id: true, firstName: true, lastName: true } } },
+      include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -94,7 +94,7 @@ router.get('/dashboard', requireCoach, async (_req, res) => {
         startDate: { lte: today },
         OR: [{ endDate: null }, { endDate: { gte: today } }],
       },
-      include: { user: { select: { id: true, firstName: true, lastName: true } } },
+      include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
       orderBy: { startDate: 'desc' },
     });
 
@@ -104,7 +104,7 @@ router.get('/dashboard', requireCoach, async (_req, res) => {
     const availableCount = totalPlayers - injuredCount;
 
     const allInjuries = await prisma.injury.findMany({
-      include: { user: { select: { id: true, firstName: true, lastName: true, position: true } } },
+      include: { user: { select: { id: true, firstName: true, lastName: true, position: true, avatarUrl: true } } },
       orderBy: { startDate: 'desc' },
       take: 30,
     });

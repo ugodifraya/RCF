@@ -23,6 +23,7 @@ const coachNav = [
   { to: '/statistics', icon: '📊', label: 'Statistiques' },
   { to: '/players', icon: '👥', label: 'Joueuses' },
   { to: '/performance', icon: '⚡', label: 'Performance' },
+  { to: '/profile', icon: '👤', label: 'Mon profil' },
 ];
 
 export default function Sidebar({ open, onClose }: SidebarProps) {

@@ -14,10 +14,13 @@ export default function HealthTracking() {
   const [injuries, setInjuries] = useState<Injury[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Cycle form
+  // Cycle form (new entry: only start date + pain)
   const [showCycleForm, setShowCycleForm] = useState(false);
-  const [editCycle, setEditCycle] = useState<CycleTracking | null>(null);
-  const [cycleForm, setCycleForm] = useState({ startDate: '', endDate: '', painLevel: '0', notes: '' });
+  const [cycleForm, setCycleForm] = useState({ startDate: '', painLevel: '0', notes: '' });
+
+  // End cycle modal
+  const [endingCycle, setEndingCycle] = useState<CycleTracking | null>(null);
+  const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10));
 
   // Injury form
   const [showInjuryForm, setShowInjuryForm] = useState(false);
@@ -38,11 +41,28 @@ export default function HealthTracking() {
     if (!cycleForm.startDate) return;
     setSaving(true);
     try {
-      const payload = { ...cycleForm, painLevel: parseInt(cycleForm.painLevel) || 0 };
-      if (editCycle) await api.put(`/health/cycles/${editCycle.id}`, payload);
-      else await api.post('/health/cycles', payload);
-      setShowCycleForm(false); setEditCycle(null);
-      setCycleForm({ startDate: '', endDate: '', painLevel: '0', notes: '' });
+      await api.post('/health/cycles', {
+        startDate: cycleForm.startDate,
+        painLevel: parseInt(cycleForm.painLevel) || 0,
+        notes: cycleForm.notes,
+      });
+      setShowCycleForm(false);
+      setCycleForm({ startDate: '', painLevel: '0', notes: '' });
+      load();
+    } catch { } finally { setSaving(false); }
+  };
+
+  const finishCycle = async () => {
+    if (!endingCycle) return;
+    setSaving(true);
+    try {
+      await api.put(`/health/cycles/${endingCycle.id}`, {
+        startDate: endingCycle.startDate,
+        endDate,
+        painLevel: endingCycle.painLevel,
+        notes: endingCycle.notes,
+      });
+      setEndingCycle(null);
       load();
     } catch { } finally { setSaving(false); }
   };
@@ -50,12 +70,6 @@ export default function HealthTracking() {
   const deleteCycle = async (id: string) => {
     if (!confirm('Supprimer cette entrée ?')) return;
     await api.delete(`/health/cycles/${id}`); load();
-  };
-
-  const openEditCycle = (c: CycleTracking) => {
-    setEditCycle(c);
-    setCycleForm({ startDate: c.startDate.slice(0, 10), endDate: c.endDate?.slice(0, 10) || '', painLevel: c.painLevel?.toString() || '0', notes: c.notes || '' });
-    setShowCycleForm(true);
   };
 
   const saveInjury = async () => {
@@ -75,6 +89,7 @@ export default function HealthTracking() {
     setInjuryForm(p => ({ ...p, [f]: e.target.value }));
 
   const activeInjuries = injuries.filter(i => i.status === 'ACTIVE');
+  const activeCycle = cycles.find(c => !c.endDate);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -109,14 +124,49 @@ export default function HealthTracking() {
         <div className="space-y-4">
           <div className="card bg-pink-50 border-pink-200">
             <p className="text-sm text-pink-800">
-              🔒 Ces informations sont transmises à votre coach (avec le niveau de douleur) afin d'adapter vos entraînements et de mieux gérer votre charge physique.
+              🔒 Ces informations sont transmises à votre coach (avec le niveau de douleur) afin d'adapter vos entraînements.
             </p>
           </div>
+
+          {/* Cycle en cours banner */}
+          {activeCycle && (
+            <div className="card bg-pink-50 border-pink-300">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <p className="font-semibold text-pink-800">🩸 Règles en cours</p>
+                  <p className="text-sm text-pink-600">
+                    Depuis le {format(new Date(activeCycle.startDate), 'd MMMM yyyy', { locale: fr })}
+                    {' '}({differenceInDays(new Date(), new Date(activeCycle.startDate)) + 1} jour{differenceInDays(new Date(), new Date(activeCycle.startDate)) > 0 ? 's' : ''})
+                  </p>
+                  {activeCycle.painLevel !== undefined && activeCycle.painLevel !== null && activeCycle.painLevel > 0 && (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <div className={`w-2 h-2 rounded-full ${PAIN_COLORS[activeCycle.painLevel]}`} />
+                      <span className="text-xs text-pink-600">Douleur {activeCycle.painLevel}/10 — {painLabel(activeCycle.painLevel)}</span>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => { setEndDate(new Date().toISOString().slice(0, 10)); setEndingCycle(activeCycle); }}
+                  className="px-4 py-2 bg-pink-600 text-white rounded-xl text-sm font-semibold hover:bg-pink-700 transition-colors"
+                >
+                  Fin de mes règles
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-end">
-            <button onClick={() => { setEditCycle(null); setCycleForm({ startDate: '', endDate: '', painLevel: '0', notes: '' }); setShowCycleForm(true); }} className="btn-primary" style={{ background: '#ec4899' }}>
-              + Nouvelle période
+            <button
+              onClick={() => { setCycleForm({ startDate: new Date().toISOString().slice(0, 10), painLevel: '0', notes: '' }); setShowCycleForm(true); }}
+              disabled={!!activeCycle}
+              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: activeCycle ? undefined : '#ec4899' }}
+              title={activeCycle ? 'Terminez d\'abord le cycle en cours' : ''}
+            >
+              + Déclarer le début de mes règles
             </button>
           </div>
+
           {loading ? <Spinner /> : cycles.length === 0 ? (
             <EmptyState icon="🌸" text="Aucune période enregistrée" />
           ) : (
@@ -124,7 +174,7 @@ export default function HealthTracking() {
               {cycles.map(c => {
                 const duration = c.endDate ? differenceInDays(new Date(c.endDate), new Date(c.startDate)) + 1 : null;
                 return (
-                  <div key={c.id} className="card hover:shadow-md transition-shadow">
+                  <div key={c.id} className={`card hover:shadow-md transition-shadow ${!c.endDate ? 'border-pink-200 bg-pink-50' : ''}`}>
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3">
                         <div className="w-10 h-10 bg-pink-100 rounded-xl flex items-center justify-center text-xl">🩸</div>
@@ -146,10 +196,7 @@ export default function HealthTracking() {
                           {c.notes && <p className="text-xs text-gray-500 mt-1 italic">"{c.notes}"</p>}
                         </div>
                       </div>
-                      <div className="flex gap-2 shrink-0">
-                        <button onClick={() => openEditCycle(c)} className="text-gray-400 hover:text-gray-600 text-sm">Modifier</button>
-                        <button onClick={() => deleteCycle(c.id)} className="text-red-400 hover:text-red-600 text-sm">✕</button>
-                      </div>
+                      <button onClick={() => deleteCycle(c.id)} className="text-red-400 hover:text-red-600 text-sm shrink-0">✕</button>
                     </div>
                   </div>
                 );
@@ -199,25 +246,49 @@ export default function HealthTracking() {
         </div>
       )}
 
-      {/* Modal cycle */}
+      {/* Modal début de cycle */}
       {showCycleForm && (
-        <Modal title={editCycle ? 'Modifier la période' : 'Nouvelle période'} onClose={() => setShowCycleForm(false)}>
+        <Modal title="Début de mes règles" onClose={() => setShowCycleForm(false)}>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="label">Début *</label><input type="date" className="input" value={cycleForm.startDate} onChange={setC('startDate')} /></div>
-              <div><label className="label">Fin</label><input type="date" className="input" value={cycleForm.endDate} onChange={setC('endDate')} /></div>
+            <div>
+              <label className="label">Date de début *</label>
+              <input type="date" className="input" value={cycleForm.startDate} onChange={setC('startDate')} />
             </div>
             <div>
               <label className="label">Niveau de douleur : {cycleForm.painLevel}/10{parseInt(cycleForm.painLevel) > 0 ? ` — ${painLabel(parseInt(cycleForm.painLevel))}` : ' — Aucune'}</label>
               <input type="range" min="0" max="10" step="1" value={cycleForm.painLevel} onChange={setC('painLevel')} className="w-full accent-pink-500" />
               <div className="flex justify-between text-xs text-gray-400 mt-1"><span>Aucune</span><span>Extrême</span></div>
             </div>
-            <div><label className="label">Notes</label><textarea className="input" rows={2} value={cycleForm.notes} onChange={setC('notes')} placeholder="Symptômes, ressenti..." /></div>
+            <div>
+              <label className="label">Notes (optionnel)</label>
+              <textarea className="input" rows={2} value={cycleForm.notes} onChange={setC('notes')} placeholder="Symptômes, ressenti..." />
+            </div>
             <div className="flex gap-2">
               <button onClick={saveCycle} disabled={saving || !cycleForm.startDate} className="btn-primary flex-1" style={{ background: '#ec4899' }}>
-                {saving ? 'Enregistrement...' : editCycle ? 'Modifier' : 'Enregistrer'}
+                {saving ? 'Enregistrement...' : 'Déclarer le début'}
               </button>
               <button onClick={() => setShowCycleForm(false)} className="btn-secondary flex-1">Annuler</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal fin de cycle */}
+      {endingCycle && (
+        <Modal title="Fin de mes règles" onClose={() => setEndingCycle(null)}>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Début le {format(new Date(endingCycle.startDate), 'd MMMM yyyy', { locale: fr })}
+            </p>
+            <div>
+              <label className="label">Date de fin *</label>
+              <input type="date" className="input" value={endDate} onChange={e => setEndDate(e.target.value)} min={endingCycle.startDate.slice(0, 10)} />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={finishCycle} disabled={saving} className="btn-primary flex-1" style={{ background: '#ec4899' }}>
+                {saving ? 'Enregistrement...' : 'Confirmer la fin'}
+              </button>
+              <button onClick={() => setEndingCycle(null)} className="btn-secondary flex-1">Annuler</button>
             </div>
           </div>
         </Modal>
@@ -244,7 +315,7 @@ export default function HealthTracking() {
             </div>
             <div>
               <label className="label">Description</label>
-              <textarea className="input" rows={3} value={injuryForm.description} onChange={setI('description')} placeholder="Décrivez vos symptômes, dans quelles circonstances..." />
+              <textarea className="input" rows={3} value={injuryForm.description} onChange={setI('description')} placeholder="Décrivez vos symptômes..." />
             </div>
             <div className="flex gap-2">
               <button onClick={saveInjury} disabled={saving || !injuryForm.type || !injuryForm.startDate} className="btn-primary flex-1" style={{ background: '#ef4444' }}>
