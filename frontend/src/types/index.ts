@@ -13,6 +13,7 @@ export interface User {
   role: Role;
   position?: string;
   number?: number;
+  avatarUrl?: string;
   createdAt?: string;
 }
 
@@ -104,7 +105,6 @@ export interface CycleTracking {
   endDate?: string;
   painLevel?: number;
   notes?: string;
-  shareWithCoach?: boolean;
   createdAt: string;
 }
 
@@ -127,12 +127,35 @@ export interface Injury {
   id: string;
   userId: string;
   type: string;
+  bodyPart?: string;
   startDate: string;
   endDate?: string;
   description?: string;
   status: InjuryStatus;
+  reportedBy?: string;
   createdAt: string;
   user?: User;
+}
+
+export interface PhysicalMeasurement {
+  id: string;
+  userId: string;
+  weight?: number | null;
+  height?: number | null;
+  date: string;
+  createdAt: string;
+}
+
+export interface PerformanceTest {
+  id: string;
+  userId: string;
+  type: string;
+  value: number;
+  unit: string;
+  date: string;
+  notes?: string;
+  createdAt: string;
+  user?: { firstName: string; lastName: string };
 }
 
 export interface PlayerStat {

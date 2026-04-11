@@ -9,6 +9,7 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<void>;
   logout: () => void;
   isCoach: boolean;
+  setUser: React.Dispatch<React.SetStateAction<User | null>>;
 }
 
 interface RegisterData {
@@ -54,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isCoach = user?.role === 'COACH' || user?.role === 'ADMIN';
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, isCoach }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, isCoach, setUser }}>
       {children}
     </AuthContext.Provider>
   );

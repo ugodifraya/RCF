@@ -13,6 +13,8 @@ import Matches from './pages/Matches';
 import MatchDetail from './pages/MatchDetail';
 import Statistics from './pages/Statistics';
 import Players from './pages/Players';
+import Performance from './pages/Performance';
+import Profile from './pages/Profile';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -46,6 +48,8 @@ function AppRoutes() {
         <Route path="matches/:id" element={<MatchDetail />} />
         <Route path="statistics" element={<Statistics />} />
         <Route path="players" element={<Players />} />
+        <Route path="performance" element={<Performance />} />
+        <Route path="profile" element={<Profile />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

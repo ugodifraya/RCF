@@ -16,6 +16,7 @@ model User {
   role      String   @default("PLAYER")
   position  String?
   number    Int?
+  avatarUrl String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -30,6 +31,8 @@ model User {
   votesCast              MatchPlayerVote[]    @relation("VotesCast")
   votesReceived          MatchPlayerVote[]    @relation("VotesReceived")
   matchRatings           MatchRating[]
+  physicalMeasurements   PhysicalMeasurement[]
+  performanceTests       PerformanceTest[]
 }
 
 model Event {
@@ -111,14 +114,13 @@ model QuestionAnswer {
 }
 
 model CycleTracking {
-  id             String    @id @default(cuid())
-  userId         String
-  startDate      DateTime
-  endDate        DateTime?
-  painLevel      Int?
-  notes          String?
-  shareWithCoach Boolean   @default(false)
-  createdAt      DateTime  @default(now())
+  id        String    @id @default(cuid())
+  userId    String
+  startDate DateTime
+  endDate   DateTime?
+  painLevel Int?
+  notes     String?
+  createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id])
 }
@@ -192,11 +194,37 @@ model Injury {
   id          String    @id @default(cuid())
   userId      String
   type        String
+  bodyPart    String?
   startDate   DateTime
   endDate     DateTime?
   description String?
   status      String    @default("ACTIVE")
+  reportedBy  String    @default("COACH")
   createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model PhysicalMeasurement {
+  id        String   @id @default(cuid())
+  userId    String
+  weight    Float?
+  height    Float?
+  date      DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model PerformanceTest {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  value     Float
+  unit      String
+  date      DateTime
+  notes     String?
+  createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
 }

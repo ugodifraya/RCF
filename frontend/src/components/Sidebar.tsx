@@ -10,6 +10,8 @@ const playerNav = [
   { to: '/health', icon: '🩸', label: 'Suivi santé' },
   { to: '/matches', icon: '⚽', label: 'Matchs' },
   { to: '/statistics', icon: '📊', label: 'Mes statistiques' },
+  { to: '/performance', icon: '⚡', label: 'Performance' },
+  { to: '/profile', icon: '👤', label: 'Mon profil' },
 ];
 
 const coachNav = [
@@ -20,6 +22,7 @@ const coachNav = [
   { to: '/matches', icon: '⚽', label: 'Matchs' },
   { to: '/statistics', icon: '📊', label: 'Statistiques' },
   { to: '/players', icon: '👥', label: 'Joueuses' },
+  { to: '/performance', icon: '⚡', label: 'Performance' },
 ];
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
