@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Events from './pages/Events';
+import Calendar from './pages/Calendar';
 import Questionnaires from './pages/Questionnaires';
 import QuestionnaireDetail from './pages/QuestionnaireDetail';
 import HealthTracking from './pages/HealthTracking';
@@ -40,6 +41,7 @@ function AppRoutes() {
       <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
         <Route index element={<Dashboard />} />
         <Route path="events" element={<Events />} />
+        <Route path="calendrier" element={<Calendar />} />
         <Route path="questionnaires" element={<Questionnaires />} />
         <Route path="questionnaires/:id" element={<QuestionnaireDetail />} />
         <Route path="health" element={<HealthTracking />} />

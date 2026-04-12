@@ -5,20 +5,18 @@ interface SidebarProps { open: boolean; onClose: () => void; }
 
 const playerNav = [
   { to: '/', icon: '🏠', label: 'Tableau de bord' },
-  { to: '/events', icon: '📅', label: 'Événements' },
+  { to: '/calendrier', icon: '📅', label: 'Calendrier' },
   { to: '/questionnaires', icon: '📋', label: 'Questionnaires' },
   { to: '/health', icon: '🩸', label: 'Suivi santé' },
-  { to: '/matches', icon: '⚽', label: 'Matchs' },
   { to: '/statistics', icon: '📊', label: 'Mes statistiques' },
   { to: '/performance', icon: '⚡', label: 'Performance' },
 ];
 
 const coachNav = [
   { to: '/', icon: '🏠', label: 'Tableau de bord' },
-  { to: '/events', icon: '📅', label: 'Événements' },
+  { to: '/calendrier', icon: '📅', label: 'Calendrier' },
   { to: '/questionnaires', icon: '📋', label: 'Questionnaires' },
   { to: '/health-dashboard', icon: '🏥', label: 'Santé équipe' },
-  { to: '/matches', icon: '⚽', label: 'Matchs' },
   { to: '/statistics', icon: '📊', label: 'Statistiques' },
   { to: '/players', icon: '👥', label: 'Joueuses' },
   { to: '/performance', icon: '⚡', label: 'Performance' },

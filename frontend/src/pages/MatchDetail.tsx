@@ -10,10 +10,15 @@ type Tab = 'infos' | 'joueuses' | 'stats';
 
 interface MatchPlayerVote {
   id: string; matchId: string; voterId: string; votedForId: string;
+  confirmedAt?: string | null;
   voter: { id: string; firstName: string; lastName: string };
   votedFor: { id: string; firstName: string; lastName: string };
 }
-interface MatchRating { id: string; matchId: string; userId: string; rating: number; }
+interface MatchRating {
+  id: string; matchId: string; userId: string; rating: number;
+  confirmedAt?: string | null;
+  user?: { id: string; firstName: string; lastName: string };
+}
 
 interface MatchFull extends Match {
   playerVotes: MatchPlayerVote[];
@@ -40,15 +45,20 @@ export default function MatchDetail() {
   const [myVote, setMyVote] = useState<string>('');
   const [myRating, setMyRating] = useState<number>(0);
   const [hoverRating, setHoverRating] = useState<number>(0);
+  const [myVoteConfirmed, setMyVoteConfirmed] = useState(false);
+  const [myRatingConfirmed, setMyRatingConfirmed] = useState(false);
+  const [pendingVote, setPendingVote] = useState<string | null>(null);
+  const [pendingRating, setPendingRating] = useState<number>(0);
+  const [showVotesModal, setShowVotesModal] = useState(false);
 
   const load = () => {
     api.get(`/matches/${id}`).then(r => {
       const m: MatchFull = r.data;
       setMatch(m);
       const myV = m.playerVotes?.find(v => v.voterId === user?.id);
-      if (myV) setMyVote(myV.votedForId);
+      if (myV) { setMyVote(myV.votedForId); setMyVoteConfirmed(!!myV.confirmedAt); }
       const myR = m.ratings?.find(r => r.userId === user?.id);
-      if (myR) setMyRating(myR.rating);
+      if (myR) { setMyRating(myR.rating); setMyRatingConfirmed(!!myR.confirmedAt); }
     });
   };
 
@@ -75,15 +85,30 @@ export default function MatchDetail() {
   const avgRating = match?.ratings?.length
     ? match.ratings.reduce((s, r) => s + r.rating, 0) / match.ratings.length : null;
 
-  const handleVote = async (votedForId: string) => {
-    setMyVote(votedForId);
-    await api.post(`/matches/${id}/vote`, { votedForId });
+  const handleVote = (votedForId: string) => {
+    if (myVoteConfirmed) return;
+    setPendingVote(votedForId);
+  };
+
+  const confirmVote = async () => {
+    if (!pendingVote) return;
+    await api.post(`/matches/${id}/vote`, { votedForId: pendingVote });
+    await api.post(`/matches/${id}/vote/confirm`);
+    setPendingVote(null);
     load();
   };
 
-  const handleRate = async (rating: number) => {
+  const handleRate = (rating: number) => {
+    if (myRatingConfirmed) return;
+    setPendingRating(rating);
     setMyRating(rating);
-    await api.post(`/matches/${id}/rate`, { rating });
+  };
+
+  const confirmRate = async () => {
+    if (!pendingRating) return;
+    await api.post(`/matches/${id}/rate`, { rating: pendingRating });
+    await api.post(`/matches/${id}/rate/confirm`);
+    setPendingRating(0);
     load();
   };
 
@@ -211,9 +236,19 @@ export default function MatchDetail() {
               )}
 
               <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">
-                  {myVote ? 'Votre vote :' : 'Voter pour la joueuse du match :'}
-                </p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-700">
+                    {myVoteConfirmed ? '✅ Vote confirmé (non modifiable)' : myVote ? 'Votre vote (non confirmé) :' : 'Voter pour la joueuse du match :'}
+                  </p>
+                  {isCoach && (
+                    <button onClick={() => setShowVotesModal(true)} className="text-xs text-primary-600 hover:underline font-medium">
+                      Voir tous les votes →
+                    </button>
+                  )}
+                </div>
+                {myVoteConfirmed && (
+                  <p className="text-xs text-gray-400 mb-2">Votre vote a été confirmé et ne peut plus être modifié.</p>
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   {(match.playerStats?.filter(s => s.minutesPlayed > 0) || []).map(s => {
                     const p = s.user;
@@ -222,8 +257,11 @@ export default function MatchDetail() {
                     const isSelected = myVote === p.id;
                     return (
                       <button key={p.id} onClick={() => handleVote(p.id)}
+                        disabled={myVoteConfirmed}
                         className={`flex items-center gap-2 p-2 rounded-xl border text-sm transition-all ${
-                          isSelected ? 'bg-yellow-50 border-yellow-400' : 'bg-white border-gray-200 hover:border-primary-300'
+                          myVoteConfirmed
+                            ? isSelected ? 'bg-yellow-50 border-yellow-400 opacity-80 cursor-default' : 'bg-white border-gray-200 opacity-50 cursor-default'
+                            : isSelected ? 'bg-yellow-50 border-yellow-400' : 'bg-white border-gray-200 hover:border-primary-300'
                         }`}>
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isSelected ? 'bg-yellow-400 text-white' : 'bg-gray-100 text-gray-700'}`}>
                           {p.firstName[0]}{p.lastName[0]}
@@ -237,6 +275,11 @@ export default function MatchDetail() {
                     );
                   })}
                 </div>
+                {myVote && !myVoteConfirmed && (
+                  <button onClick={() => setPendingVote(myVote)} className="btn-primary w-full mt-3 text-sm">
+                    Confirmer mon vote
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -257,17 +300,29 @@ export default function MatchDetail() {
                 </div>
               )}
               <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">{myRating ? 'Votre note :' : 'Notez ce match :'}</p>
+                <p className="text-sm font-medium text-gray-700 mb-2">
+                  {myRatingConfirmed ? '✅ Note confirmée (non modifiable)' : myRating ? 'Votre note (non confirmée) :' : 'Notez ce match :'}
+                </p>
+                {myRatingConfirmed && (
+                  <p className="text-xs text-gray-400 mb-2">Votre note a été confirmée et ne peut plus être modifiée.</p>
+                )}
                 <div className="flex justify-center gap-2">
                   {[1, 2, 3, 4, 5].map(s => (
-                    <button key={s} onClick={() => handleRate(s)}
-                      onMouseEnter={() => setHoverRating(s)}
+                    <button key={s}
+                      onClick={() => handleRate(s)}
+                      onMouseEnter={() => !myRatingConfirmed && setHoverRating(s)}
                       onMouseLeave={() => setHoverRating(0)}
-                      className="text-3xl transition-transform hover:scale-125">
+                      disabled={myRatingConfirmed}
+                      className={`text-3xl transition-transform ${myRatingConfirmed ? 'cursor-default' : 'hover:scale-125'}`}>
                       <span className={(hoverRating || myRating) >= s ? 'text-yellow-400' : 'text-gray-200'}>★</span>
                     </button>
                   ))}
                 </div>
+                {myRating > 0 && !myRatingConfirmed && (
+                  <button onClick={() => setPendingRating(myRating)} className="btn-primary w-full mt-3 text-sm">
+                    Confirmer ma note ({myRating}/5)
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -440,6 +495,131 @@ export default function MatchDetail() {
                   {saving ? 'Enregistrement...' : 'Enregistrer'}
                 </button>
                 <button onClick={() => setShowStatsForm(false)} className="btn-secondary flex-1">Annuler</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dialog confirmation vote */}
+      {pendingVote && (() => {
+        const candidate = players.find(p => p.id === pendingVote);
+        return (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+              <h2 className="text-lg font-bold text-gray-900 text-center">Confirmer votre vote</h2>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-700 font-bold text-xl mx-auto">
+                  {candidate?.firstName[0]}{candidate?.lastName[0]}
+                </div>
+                <p className="mt-3 text-gray-700">
+                  Vous votez pour <span className="font-semibold">{candidate?.firstName} {candidate?.lastName}</span>
+                </p>
+                <p className="text-sm text-red-500 mt-2 font-medium">⚠️ Cette action est définitive et ne pourra plus être modifiée.</p>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setPendingVote(null)} className="btn-secondary flex-1">Annuler</button>
+                <button onClick={confirmVote} className="btn-primary flex-1">Confirmer</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Dialog confirmation note du match */}
+      {pendingRating > 0 && !myRatingConfirmed && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <h2 className="text-lg font-bold text-gray-900 text-center">Confirmer votre note</h2>
+            <div className="text-center">
+              <div className="flex justify-center gap-1 my-3">
+                {[1,2,3,4,5].map(s => (
+                  <span key={s} className={`text-3xl ${s <= pendingRating ? 'text-yellow-400' : 'text-gray-200'}`}>★</span>
+                ))}
+              </div>
+              <p className="text-gray-700">Vous notez ce match <span className="font-semibold">{pendingRating}/5</span></p>
+              <p className="text-sm text-red-500 mt-2 font-medium">⚠️ Cette action est définitive et ne pourra plus être modifiée.</p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setPendingRating(0)} className="btn-secondary flex-1">Annuler</button>
+              <button onClick={confirmRate} className="btn-primary flex-1">Confirmer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal coach : votes et notes par joueuse */}
+      {showVotesModal && isCoach && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900">Votes et notes des joueuses</h2>
+              <button onClick={() => setShowVotesModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="p-6 space-y-6">
+              {/* Votes */}
+              <div>
+                <h3 className="font-semibold text-gray-700 mb-3">🏆 Votes joueuse du match ({totalVotes} vote{totalVotes !== 1 ? 's' : ''})</h3>
+                {match.playerVotes?.length === 0 ? (
+                  <p className="text-sm text-gray-400">Aucun vote pour l'instant.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {match.playerVotes?.map(v => (
+                      <div key={v.id} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 bg-primary-100 rounded-full flex items-center justify-center text-xs font-bold text-primary-700">
+                            {v.voter.firstName[0]}{v.voter.lastName[0]}
+                          </div>
+                          <span className="text-gray-600">{v.voter.firstName} {v.voter.lastName}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400">→</span>
+                          <span className="font-semibold text-gray-900">{v.votedFor.firstName} {v.votedFor.lastName}</span>
+                          {v.confirmedAt
+                            ? <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Confirmé</span>
+                            : <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">Non confirmé</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* Notes */}
+              <div>
+                <h3 className="font-semibold text-gray-700 mb-3">⭐ Notes du match ({match.ratings?.length ?? 0} note{(match.ratings?.length ?? 0) !== 1 ? 's' : ''})</h3>
+                {match.ratings?.length === 0 ? (
+                  <p className="text-sm text-gray-400">Aucune note pour l'instant.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {match.ratings?.map(r => (
+                      <div key={r.id} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 bg-primary-100 rounded-full flex items-center justify-center text-xs font-bold text-primary-700">
+                            {r.user?.firstName?.[0]}{r.user?.lastName?.[0]}
+                          </div>
+                          <span className="text-gray-600">{r.user?.firstName} {r.user?.lastName}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-0.5">
+                            {[1,2,3,4,5].map(s => (
+                              <span key={s} className={`text-sm ${s <= r.rating ? 'text-yellow-400' : 'text-gray-200'}`}>★</span>
+                            ))}
+                          </div>
+                          <span className="font-bold text-gray-900 w-8 text-right">{r.rating}/5</span>
+                          {r.confirmedAt
+                            ? <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Confirmé</span>
+                            : <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">Non confirmé</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {avgRating !== null && (
+                  <div className="mt-3 p-3 bg-primary-50 rounded-lg flex items-center justify-between">
+                    <span className="text-sm font-medium text-primary-700">Moyenne équipe</span>
+                    <span className="font-bold text-primary-900">{avgRating.toFixed(1)} / 5</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
