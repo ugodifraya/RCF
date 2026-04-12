@@ -15,6 +15,16 @@ const EVENT_TYPE_LABELS: Record<EventType, string> = {
   TRAINING: 'Entraînement', MATCH: 'Match', OTHER: 'Événement',
 };
 
+interface ParsedMatch {
+  title: string;
+  date: string;
+  location: string;
+  homeTeam: string;
+  awayTeam: string;
+  competition: string;
+  isHome: boolean;
+}
+
 export default function Events() {
   const { isCoach } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
@@ -24,6 +34,18 @@ export default function Events() {
   const [form, setForm] = useState({ title: '', type: 'TRAINING', date: '', endDate: '', location: '', description: '' });
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<'upcoming' | 'past' | 'all'>('upcoming');
+
+  // FFF import state
+  const [showFFFImport, setShowFFFImport] = useState(false);
+  const [fffUrl, setFffUrl] = useState('');
+  const [fffTeamName, setFffTeamName] = useState('RCF');
+  const [fffLoading, setFffLoading] = useState(false);
+  const [fffMatches, setFffMatches] = useState<ParsedMatch[]>([]);
+  const [fffSelected, setFffSelected] = useState<Set<number>>(new Set());
+  const [fffWarning, setFffWarning] = useState('');
+  const [fffError, setFffError] = useState('');
+  const [fffConfirming, setFffConfirming] = useState(false);
+  const [fffStep, setFffStep] = useState<'input' | 'preview'>('input');
 
   const load = () => {
     setLoading(true);
@@ -80,17 +102,86 @@ export default function Events() {
   const set = (f: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(prev => ({ ...prev, [f]: e.target.value }));
 
+  // FFF import handlers
+  const openFFFImport = () => {
+    setFffUrl('');
+    setFffTeamName('RCF');
+    setFffMatches([]);
+    setFffSelected(new Set());
+    setFffWarning('');
+    setFffError('');
+    setFffStep('input');
+    setShowFFFImport(true);
+  };
+
+  const handleFFFScrape = async () => {
+    if (!fffUrl.trim()) return;
+    setFffLoading(true);
+    setFffError('');
+    setFffWarning('');
+    try {
+      const res = await api.post('/events/import-fff', { url: fffUrl.trim(), teamName: fffTeamName.trim() || 'RCF' });
+      setFffMatches(res.data.matches || []);
+      setFffWarning(res.data.warning || '');
+      // Select all by default
+      setFffSelected(new Set((res.data.matches || []).map((_: ParsedMatch, i: number) => i)));
+      setFffStep('preview');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } };
+      setFffError(e?.response?.data?.error || 'Impossible de récupérer les matchs.');
+    } finally {
+      setFffLoading(false);
+    }
+  };
+
+  const toggleFFFMatch = (i: number) => {
+    setFffSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i); else next.add(i);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (fffSelected.size === fffMatches.length) {
+      setFffSelected(new Set());
+    } else {
+      setFffSelected(new Set(fffMatches.map((_, i) => i)));
+    }
+  };
+
+  const handleFFFConfirm = async () => {
+    const selected = fffMatches.filter((_, i) => fffSelected.has(i));
+    if (selected.length === 0) return;
+    setFffConfirming(true);
+    try {
+      const res = await api.post('/events/import-fff/confirm', { matches: selected });
+      setShowFFFImport(false);
+      load();
+      alert(`${res.data.created} match(s) importé(s) avec succès !`);
+    } catch {
+      setFffError('Erreur lors de l\'import. Réessayez.');
+    } finally {
+      setFffConfirming(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Événements</h1>
           <p className="text-gray-500 text-sm mt-1">Entraînements, matchs et événements de l'équipe</p>
         </div>
         {isCoach && (
-          <button onClick={() => { setEditEvent(null); setForm({ title: '', type: 'TRAINING', date: '', endDate: '', location: '', description: '' }); setShowForm(true); }} className="btn-primary">
-            + Nouvel événement
-          </button>
+          <div className="flex gap-2 flex-wrap">
+            <button onClick={openFFFImport} className="btn-secondary">
+              Importer depuis FFF
+            </button>
+            <button onClick={() => { setEditEvent(null); setForm({ title: '', type: 'TRAINING', date: '', endDate: '', location: '', description: '' }); setShowForm(true); }} className="btn-primary">
+              + Nouvel événement
+            </button>
+          </div>
         )}
       </div>
 
@@ -172,6 +263,7 @@ export default function Events() {
         </div>
       )}
 
+      {/* Modal création / édition */}
       {showForm && (
         <Modal title={editEvent ? "Modifier l'événement" : 'Nouvel événement'} onClose={() => setShowForm(false)}>
           <div className="space-y-4">
@@ -214,6 +306,113 @@ export default function Events() {
               <button onClick={() => setShowForm(false)} className="btn-secondary flex-1">Annuler</button>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {/* Modal import FFF */}
+      {showFFFImport && (
+        <Modal title="Importer depuis FFF.fr" onClose={() => setShowFFFImport(false)}>
+          {fffStep === 'input' ? (
+            <div className="space-y-4">
+              <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
+                Collez l'URL de la page calendrier de votre équipe sur <strong>epreuves.fff.fr</strong> ou <strong>fff.fr</strong>.
+              </div>
+              <div>
+                <label className="label">URL de la page FFF *</label>
+                <input
+                  className="input"
+                  value={fffUrl}
+                  onChange={e => setFffUrl(e.target.value)}
+                  placeholder="https://epreuves.fff.fr/..."
+                />
+              </div>
+              <div>
+                <label className="label">Nom de l'équipe</label>
+                <input
+                  className="input"
+                  value={fffTeamName}
+                  onChange={e => setFffTeamName(e.target.value)}
+                  placeholder="RCF"
+                />
+                <p className="text-xs text-gray-400 mt-1">Utilisé pour détecter si votre équipe joue à domicile ou à l'extérieur.</p>
+              </div>
+              {fffError && <p className="text-sm text-red-600">{fffError}</p>}
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={handleFFFScrape}
+                  disabled={fffLoading || !fffUrl.trim()}
+                  className="btn-primary flex-1"
+                >
+                  {fffLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                      Récupération...
+                    </span>
+                  ) : 'Récupérer les matchs'}
+                </button>
+                <button onClick={() => setShowFFFImport(false)} className="btn-secondary flex-1">Annuler</button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {fffWarning && (
+                <div className="p-3 bg-amber-50 rounded-lg text-sm text-amber-800">
+                  ⚠️ {fffWarning}
+                </div>
+              )}
+              {fffMatches.length === 0 ? (
+                <div className="text-center py-6">
+                  <p className="text-gray-500">Aucun match trouvé sur cette page.</p>
+                  <button onClick={() => setFffStep('input')} className="btn-secondary mt-3">Modifier l'URL</button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-600">{fffMatches.length} match(s) trouvé(s) — {fffSelected.size} sélectionné(s)</p>
+                    <button onClick={toggleAll} className="text-xs text-primary-600 hover:underline">
+                      {fffSelected.size === fffMatches.length ? 'Tout désélectionner' : 'Tout sélectionner'}
+                    </button>
+                  </div>
+                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                    {fffMatches.map((m, i) => (
+                      <label key={i} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${fffSelected.has(i) ? 'border-primary-300 bg-primary-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                        <input
+                          type="checkbox"
+                          checked={fffSelected.has(i)}
+                          onChange={() => toggleFFFMatch(i)}
+                          className="mt-0.5 accent-primary-600"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-gray-900">{m.title}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {format(new Date(m.date), 'EEEE d MMMM yyyy à HH:mm', { locale: fr })}
+                            {m.location && ` · ${m.location}`}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            {m.competition && <span className="text-xs text-gray-400">{m.competition}</span>}
+                            <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${m.isHome ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                              {m.isHome ? 'Domicile' : 'Extérieur'}
+                            </span>
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  {fffError && <p className="text-sm text-red-600">{fffError}</p>}
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={handleFFFConfirm}
+                      disabled={fffConfirming || fffSelected.size === 0}
+                      className="btn-primary flex-1"
+                    >
+                      {fffConfirming ? 'Import...' : `Importer ${fffSelected.size} match(s)`}
+                    </button>
+                    <button onClick={() => setFffStep('input')} className="btn-secondary">Retour</button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </Modal>
       )}
     </div>
