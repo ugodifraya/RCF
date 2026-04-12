@@ -140,10 +140,33 @@ router.post('/:id/vote', requireAuth, async (req: AuthRequest, res) => {
     const { votedForId } = req.body;
     if (!votedForId) return res.status(400).json({ error: 'Joueuse requise' });
 
+    const existing = await prisma.matchPlayerVote.findUnique({
+      where: { matchId_voterId: { matchId: req.params.id, voterId: req.user!.id } },
+    });
+    if (existing?.confirmedAt) return res.status(403).json({ error: 'Vote déjà confirmé, impossible de le modifier.' });
+
     const vote = await prisma.matchPlayerVote.upsert({
       where: { matchId_voterId: { matchId: req.params.id, voterId: req.user!.id } },
       update: { votedForId },
       create: { matchId: req.params.id, voterId: req.user!.id, votedForId },
+    });
+    res.json(vote);
+  } catch {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Confirmer le vote (verrouillage définitif)
+router.post('/:id/vote/confirm', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const existing = await prisma.matchPlayerVote.findUnique({
+      where: { matchId_voterId: { matchId: req.params.id, voterId: req.user!.id } },
+    });
+    if (!existing) return res.status(404).json({ error: 'Aucun vote à confirmer' });
+    if (existing.confirmedAt) return res.status(400).json({ error: 'Vote déjà confirmé' });
+    const vote = await prisma.matchPlayerVote.update({
+      where: { matchId_voterId: { matchId: req.params.id, voterId: req.user!.id } },
+      data: { confirmedAt: new Date() },
     });
     res.json(vote);
   } catch {
@@ -157,10 +180,33 @@ router.post('/:id/rate', requireAuth, async (req: AuthRequest, res) => {
     const { rating } = req.body;
     if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error: 'Note invalide (1-5)' });
 
+    const existing = await prisma.matchRating.findUnique({
+      where: { matchId_userId: { matchId: req.params.id, userId: req.user!.id } },
+    });
+    if (existing?.confirmedAt) return res.status(403).json({ error: 'Note déjà confirmée, impossible de la modifier.' });
+
     const rate = await prisma.matchRating.upsert({
       where: { matchId_userId: { matchId: req.params.id, userId: req.user!.id } },
       update: { rating: parseInt(rating) },
       create: { matchId: req.params.id, userId: req.user!.id, rating: parseInt(rating) },
+    });
+    res.json(rate);
+  } catch {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Confirmer la note (verrouillage définitif)
+router.post('/:id/rate/confirm', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const existing = await prisma.matchRating.findUnique({
+      where: { matchId_userId: { matchId: req.params.id, userId: req.user!.id } },
+    });
+    if (!existing) return res.status(404).json({ error: 'Aucune note à confirmer' });
+    if (existing.confirmedAt) return res.status(400).json({ error: 'Note déjà confirmée' });
+    const rate = await prisma.matchRating.update({
+      where: { matchId_userId: { matchId: req.params.id, userId: req.user!.id } },
+      data: { confirmedAt: new Date() },
     });
     res.json(rate);
   } catch {
