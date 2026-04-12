@@ -14,6 +14,7 @@ interface HealthData {
   activeInjuries: (Injury & { user: User })[];
   recentInjuries: (Injury & { user: User })[];
   activeCycles: (CycleTracking & { user: User })[];
+  recentCycles: (CycleTracking & { user: User })[];
   allInjuries: (Injury & { user: User })[];
 }
 
@@ -21,15 +22,23 @@ export default function HealthDashboard() {
   const [data, setData] = useState<HealthData | null>(null);
   const [players, setPlayers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [tab, setTab] = useState<'overview' | 'injuries' | 'cycles' | 'history'>('overview');
+
+  // Injury form
   const [showInjuryForm, setShowInjuryForm] = useState(false);
   const [injuryForm, setInjuryForm] = useState({ userId: '', type: '', bodyPart: '', startDate: '', endDate: '', description: '' });
   const [saving, setSaving] = useState(false);
 
   const load = () => {
     setLoading(true);
+    setError('');
     Promise.all([api.get('/health/dashboard'), api.get('/users/players')])
       .then(([h, p]) => { setData(h.data); setPlayers(p.data); })
+      .catch(err => {
+        console.error('HealthDashboard load error:', err);
+        setError('Impossible de charger les données. Vérifiez que le serveur est démarré.');
+      })
       .finally(() => setLoading(false));
   };
 
@@ -58,19 +67,71 @@ export default function HealthDashboard() {
   const setI = (f: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setInjuryForm(p => ({ ...p, [f]: e.target.value }));
 
-  if (loading) return <div className="text-center py-10"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto" /></div>;
+  if (loading) return <div className="text-center py-16"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600 mx-auto" /></div>;
+
+  if (error) return (
+    <div className="max-w-lg mx-auto mt-16 card bg-red-50 border-red-200 text-center">
+      <p className="text-4xl mb-3">⚠️</p>
+      <p className="font-semibold text-red-700 mb-1">Erreur de chargement</p>
+      <p className="text-sm text-red-600 mb-4">{error}</p>
+      <button onClick={load} className="btn-primary">Réessayer</button>
+    </div>
+  );
+
   if (!data) return null;
-  const { summary, activeInjuries, activeCycles, allInjuries } = data;
+
+  const { summary, activeInjuries, activeCycles, allInjuries, recentInjuries, recentCycles } = data;
+  const newNotifs = recentInjuries.length + recentCycles.length;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><span>🏥</span> Santé équipe</h1>
-          <p className="text-gray-500 text-sm mt-1">Blessures, cycles menstruels et état de forme</p>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            🏥 Santé équipe
+            {newNotifs > 0 && (
+              <span className="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5">{newNotifs} nouveau{newNotifs > 1 ? 'x' : ''}</span>
+            )}
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">Blessures, douleurs et cycles menstruels de l'équipe</p>
         </div>
-        <button onClick={() => setShowInjuryForm(true)} className="btn-primary">+ Déclarer blessure</button>
+        <button onClick={() => setShowInjuryForm(true)} className="btn-primary bg-red-500 hover:bg-red-600">
+          + Déclarer une blessure / douleur
+        </button>
       </div>
+
+      {/* Nouvelles déclarations (48h) */}
+      {newNotifs > 0 && (
+        <div className="card bg-amber-50 border-amber-200">
+          <p className="text-sm font-bold text-amber-800 mb-3">🔔 Nouvelles déclarations (dernières 48h)</p>
+          <div className="space-y-2">
+            {recentInjuries.map(inj => (
+              <div key={inj.id} className="flex items-center gap-3 p-2 bg-white rounded-xl border border-red-100">
+                <Avatar user={inj.user} color="red" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">{inj.user.firstName} {inj.user.lastName}</p>
+                  <p className="text-xs text-red-600">🤕 {inj.bodyPart ? `${inj.bodyPart} — ` : ''}{inj.type}
+                    {inj.reportedBy === 'PLAYER' && <span className="ml-1 text-gray-400">(auto-déclarée)</span>}
+                  </p>
+                </div>
+                <span className="text-xs text-gray-400">{format(new Date(inj.createdAt), 'd MMM HH:mm', { locale: fr })}</span>
+              </div>
+            ))}
+            {recentCycles.map(c => (
+              <div key={c.id} className="flex items-center gap-3 p-2 bg-white rounded-xl border border-pink-100">
+                <Avatar user={c.user} color="pink" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">{c.user.firstName} {c.user.lastName}</p>
+                  <p className="text-xs text-pink-600">🩸 Cycle déclaré — début le {format(new Date(c.startDate), 'd MMMM', { locale: fr })}
+                    {c.painLevel && c.painLevel > 0 && ` · Douleur ${c.painLevel}/10`}
+                  </p>
+                </div>
+                <span className="text-xs text-gray-400">{format(new Date(c.createdAt), 'd MMM HH:mm', { locale: fr })}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -107,7 +168,7 @@ export default function HealthDashboard() {
         ))}
       </div>
 
-      {/* OVERVIEW */}
+      {/* VUE D'ENSEMBLE */}
       {tab === 'overview' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="card">
@@ -138,7 +199,7 @@ export default function HealthDashboard() {
                   <Avatar user={c.user} color="pink" />
                   <div>
                     <p className="text-sm font-medium text-gray-900">{c.user.firstName} {c.user.lastName}</p>
-                    <p className="text-xs text-gray-500">Depuis {format(new Date(c.startDate), 'd MMM', { locale: fr })}</p>
+                    <p className="text-xs text-gray-500">Depuis {format(new Date(c.startDate), 'd MMM', { locale: fr })} · Jour {differenceInDays(new Date(), new Date(c.startDate)) + 1}</p>
                   </div>
                 </div>
                 {c.painLevel !== undefined && c.painLevel !== null && c.painLevel > 0 && (
@@ -173,7 +234,9 @@ export default function HealthDashboard() {
                     <p className="text-xs text-gray-500">Depuis le {format(new Date(inj.startDate), 'd MMMM yyyy', { locale: fr })} ({differenceInDays(new Date(), new Date(inj.startDate))} j)</p>
                     {inj.endDate && <p className="text-xs text-gray-400">Retour prévu : {format(new Date(inj.endDate), 'd MMM yyyy', { locale: fr })}</p>}
                     {inj.description && <p className="text-xs text-gray-500 italic mt-1">{inj.description}</p>}
-                    <p className="text-xs text-gray-400 mt-0.5">Déclarée par : {inj.reportedBy === 'PLAYER' ? 'la joueuse' : 'le staff'}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {inj.reportedBy === 'PLAYER' ? '🙋 Auto-déclarée par la joueuse' : '👤 Déclarée par le staff'}
+                    </p>
                   </div>
                 </div>
                 <button onClick={() => markRecovered(inj)} className="btn-secondary text-xs py-1 px-2 text-green-700 border-green-300 hover:bg-green-50 shrink-0">✓ Rétablie</button>
@@ -183,7 +246,7 @@ export default function HealthDashboard() {
         </div>
       )}
 
-      {/* CYCLES ACTIFS DÉTAIL */}
+      {/* CYCLES ACTIFS */}
       {tab === 'cycles' && (
         <div className="space-y-3">
           {activeCycles.length === 0 ? (
@@ -195,11 +258,8 @@ export default function HealthDashboard() {
                 <div className="flex-1">
                   <p className="font-semibold text-gray-900">{c.user.firstName} {c.user.lastName}</p>
                   <div className="flex items-center gap-4 mt-1 flex-wrap">
-                    <span className="text-xs text-gray-500">
-                      Début : {format(new Date(c.startDate), 'd MMMM yyyy', { locale: fr })}
-                    </span>
-                    {c.endDate && <span className="text-xs text-gray-500">Fin prévue : {format(new Date(c.endDate), 'd MMM', { locale: fr })}</span>}
-                    <span className="text-xs text-gray-500">{differenceInDays(new Date(), new Date(c.startDate)) + 1}e jour</span>
+                    <span className="text-xs text-gray-500">Début : {format(new Date(c.startDate), 'd MMMM yyyy', { locale: fr })}</span>
+                    <span className="text-xs text-gray-500">Jour {differenceInDays(new Date(), new Date(c.startDate)) + 1}</span>
                   </div>
                   {c.notes && <p className="text-xs text-gray-500 italic mt-1">"{c.notes}"</p>}
                 </div>
@@ -210,9 +270,8 @@ export default function HealthDashboard() {
                       <div className={`w-2.5 h-2.5 rounded-full ${PAIN_COLORS[c.painLevel]}`} />
                       <p className="text-xs text-gray-400">{c.painLevel > 0 ? painLabel(c.painLevel) : 'Aucune'}</p>
                     </div>
-                    <p className="text-xs text-gray-400">douleur</p>
                   </div>
-                ) : <span className="badge-gray shrink-0">Non renseigné</span>}
+                ) : <span className="text-xs text-gray-300 shrink-0">—</span>}
               </div>
             </div>
           ))}
@@ -223,33 +282,37 @@ export default function HealthDashboard() {
       {tab === 'history' && (
         <div className="card">
           <h3 className="font-semibold text-gray-900 mb-3">Historique des blessures</h3>
-          <div className="space-y-2">
-            {allInjuries.map(inj => (
-              <div key={inj.id} className={`flex items-center justify-between p-3 rounded-xl ${inj.status === 'ACTIVE' ? 'bg-red-50' : 'bg-gray-50'}`}>
-                <div className="flex items-center gap-3">
-                  <Avatar user={inj.user} color={inj.status === 'ACTIVE' ? 'red' : 'gray'} />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{inj.user.firstName} {inj.user.lastName} — {inj.bodyPart ? `${inj.bodyPart} / ` : ''}{inj.type}</p>
-                    <p className="text-xs text-gray-400">
-                      {format(new Date(inj.startDate), 'd MMM yyyy', { locale: fr })}
-                      {inj.endDate && ` → ${format(new Date(inj.endDate), 'd MMM yyyy', { locale: fr })}`}
-                      {' · '}{inj.reportedBy === 'PLAYER' ? 'Auto-déclarée' : 'Staff'}
-                    </p>
+          {allInjuries.length === 0 ? (
+            <p className="text-gray-400 text-sm text-center py-4">Aucune blessure enregistrée</p>
+          ) : (
+            <div className="space-y-2">
+              {allInjuries.map(inj => (
+                <div key={inj.id} className={`flex items-center justify-between p-3 rounded-xl ${inj.status === 'ACTIVE' ? 'bg-red-50' : 'bg-gray-50'}`}>
+                  <div className="flex items-center gap-3">
+                    <Avatar user={inj.user} color={inj.status === 'ACTIVE' ? 'red' : 'gray'} />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{inj.user.firstName} {inj.user.lastName} — {inj.bodyPart ? `${inj.bodyPart} / ` : ''}{inj.type}</p>
+                      <p className="text-xs text-gray-400">
+                        {format(new Date(inj.startDate), 'd MMM yyyy', { locale: fr })}
+                        {inj.endDate && ` → ${format(new Date(inj.endDate), 'd MMM yyyy', { locale: fr })}`}
+                        {' · '}{inj.reportedBy === 'PLAYER' ? 'Auto-déclarée' : 'Staff'}
+                      </p>
+                    </div>
                   </div>
+                  <span className={inj.status === 'ACTIVE' ? 'badge-red' : 'badge-green'}>{inj.status === 'ACTIVE' ? 'Active' : 'Rétablie'}</span>
                 </div>
-                <span className={inj.status === 'ACTIVE' ? 'badge-red' : 'badge-green'}>{inj.status === 'ACTIVE' ? 'Active' : 'Rétablie'}</span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Modal déclaration blessure coach */}
+      {/* Modal déclaration blessure / douleur */}
       {showInjuryForm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900">Déclarer une blessure</h2>
+              <h2 className="text-lg font-bold text-gray-900">Déclarer une blessure / douleur</h2>
               <button onClick={() => setShowInjuryForm(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <div className="p-6 space-y-4">
@@ -269,8 +332,8 @@ export default function HealthDashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="label">Type de blessure *</label>
-                  <input className="input" value={injuryForm.type} onChange={setI('type')} placeholder="Entorse, déchirure..." />
+                  <label className="label">Type *</label>
+                  <input className="input" value={injuryForm.type} onChange={setI('type')} placeholder="Entorse, douleur..." />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">

@@ -11,7 +11,6 @@ const playerNav = [
   { to: '/matches', icon: '⚽', label: 'Matchs' },
   { to: '/statistics', icon: '📊', label: 'Mes statistiques' },
   { to: '/performance', icon: '⚡', label: 'Performance' },
-  { to: '/profile', icon: '👤', label: 'Mon profil' },
 ];
 
 const coachNav = [
@@ -23,7 +22,6 @@ const coachNav = [
   { to: '/statistics', icon: '📊', label: 'Statistiques' },
   { to: '/players', icon: '👥', label: 'Joueuses' },
   { to: '/performance', icon: '⚡', label: 'Performance' },
-  { to: '/profile', icon: '👤', label: 'Mon profil' },
 ];
 
 export default function Sidebar({ open, onClose }: SidebarProps) {

@@ -109,7 +109,15 @@ router.get('/dashboard', requireCoach, async (_req, res) => {
       take: 30,
     });
 
-    res.json({ summary: { totalPlayers, injuredCount, inCycleCount, availableCount }, activeInjuries, recentInjuries, activeCycles, allInjuries });
+    // Cycles déclarés dans les 48h (notifications)
+    const twoDaysAgo = new Date(today.getTime() - 48 * 60 * 60 * 1000);
+    const recentCycles = await prisma.cycleTracking.findMany({
+      where: { createdAt: { gte: twoDaysAgo } },
+      include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({ summary: { totalPlayers, injuredCount, inCycleCount, availableCount }, activeInjuries, recentInjuries, activeCycles, allInjuries, recentCycles });
   } catch {
     res.status(500).json({ error: 'Erreur serveur' });
   }
