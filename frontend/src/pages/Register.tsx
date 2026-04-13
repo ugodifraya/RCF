@@ -10,7 +10,7 @@ export default function Register() {
 
   const [step, setStep] = useState<Step>('role');
   const [role, setRole] = useState<'PLAYER' | 'COACH'>('PLAYER');
-  const [form, setForm] = useState({ email: '', password: '', firstName: '', lastName: '', position: '', number: '' });
+  const [form, setForm] = useState({ email: '', password: '', firstName: '', lastName: '', position: '', birthDate: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -83,16 +83,14 @@ export default function Register() {
               </div>
               <div><label className="label">Email *</label><input type="email" className="input" value={form.email} onChange={set('email')} required placeholder="vous@exemple.fr" /></div>
               <div><label className="label">Mot de passe *</label><input type="password" className="input" value={form.password} onChange={set('password')} required placeholder="Minimum 6 caractères" minLength={6} /></div>
+              <div><label className="label">Date de naissance</label><input type="date" className="input" value={form.birthDate} onChange={set('birthDate')} max={new Date().toISOString().slice(0, 10)} /></div>
               {role === 'PLAYER' && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="label">Poste</label>
-                    <select className="input" value={form.position} onChange={set('position')}>
-                      <option value="">Choisir...</option>
-                      {['Gardienne','Défenseure centrale','Latérale droite','Latérale gauche','Milieu défensif','Milieu central','Ailière','Attaquante'].map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                  </div>
-                  <div><label className="label">Numéro</label><input type="number" className="input" value={form.number} onChange={set('number')} placeholder="Ex: 9" min="1" max="99" /></div>
+                <div>
+                  <label className="label">Poste</label>
+                  <select className="input" value={form.position} onChange={set('position')}>
+                    <option value="">Choisir...</option>
+                    {['Gardienne','Défenseure centrale','Latérale droite','Latérale gauche','Milieu défensif','Milieu central','Ailière','Attaquante'].map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
                 </div>
               )}
               <button type="submit" disabled={loading} className="btn-primary w-full mt-2">
@@ -104,7 +102,6 @@ export default function Register() {
               </p>
             </form>
           )}
-
         </div>
       </div>
     </div>

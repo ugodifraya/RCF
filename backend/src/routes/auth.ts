@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, firstName, lastName, position, number, role } = req.body;
+    const { email, password, firstName, lastName, position, birthDate, role } = req.body;
     if (!email || !password || !firstName || !lastName) {
       return res.status(400).json({ error: 'Champs obligatoires manquants' });
     }
@@ -19,10 +19,15 @@ router.post('/register', async (req, res) => {
     const userRole = role === 'COACH' ? 'COACH' : 'PLAYER';
     const hash = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
-      data: { email, password: hash, firstName, lastName, role: userRole, position, number: number ? parseInt(number) : null },
+      data: {
+        email, password: hash, firstName, lastName,
+        role: userRole,
+        position: position || null,
+        birthDate: birthDate ? new Date(birthDate) : null,
+      },
     });
     const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET!, { expiresIn: '7d' });
-    res.json({ token, user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role, position: user.position, number: user.number } });
+    res.json({ token, user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role, position: user.position, birthDate: user.birthDate } });
   } catch (e) {
     res.status(500).json({ error: 'Erreur serveur' });
   }
@@ -38,7 +43,7 @@ router.post('/login', async (req, res) => {
     if (!valid) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
 
     const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET!, { expiresIn: '7d' });
-    res.json({ token, user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role, position: user.position, number: user.number } });
+    res.json({ token, user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role, position: user.position, birthDate: user.birthDate } });
   } catch {
     res.status(500).json({ error: 'Erreur serveur' });
   }
@@ -48,7 +53,7 @@ router.get('/me', requireAuth, async (req: AuthRequest, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user!.id },
-      select: { id: true, email: true, firstName: true, lastName: true, role: true, position: true, number: true, createdAt: true },
+      select: { id: true, email: true, firstName: true, lastName: true, role: true, position: true, birthDate: true, avatarUrl: true, createdAt: true },
     });
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
     res.json(user);

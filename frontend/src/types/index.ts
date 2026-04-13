@@ -1,5 +1,5 @@
 export type Role = 'PLAYER' | 'COACH' | 'ADMIN';
-export type EventType = 'TRAINING' | 'MATCH' | 'OTHER';
+export type EventType = 'TRAINING' | 'MATCH' | 'CHAMPIONSHIP' | 'FRIENDLY' | 'CUP' | 'TOURNAMENT' | 'INTERNAL' | 'OTHER';
 export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'MAYBE' | 'PENDING';
 export type HomeAway = 'HOME' | 'AWAY' | 'NEUTRAL';
 export type InjuryStatus = 'ACTIVE' | 'RECOVERED';
@@ -12,7 +12,7 @@ export interface User {
   lastName: string;
   role: Role;
   position?: string;
-  number?: number;
+  birthDate?: string | null;
   avatarUrl?: string;
   createdAt?: string;
 }
@@ -21,10 +21,14 @@ export interface Event {
   id: string;
   title: string;
   type: EventType;
+  subtype?: string | null;
   date: string;
   endDate?: string;
+  meetingTime?: string | null;
   location?: string;
   description?: string;
+  opponent?: string | null;
+  roundNumber?: string | null;
   createdById: string;
   createdAt: string;
   createdBy?: { firstName: string; lastName: string };
@@ -163,7 +167,6 @@ export interface PlayerStat {
   firstName: string;
   lastName: string;
   position?: string;
-  number?: number;
   attendanceRate: number;
   present: number;
   absent: number;
@@ -176,4 +179,27 @@ export interface PlayerStat {
   redCards: number;
   avgRating?: number;
   activeInjuries: number;
+}
+
+// Per-type color keys stored in localStorage
+export const COLOR_KEYS = {
+  TRAINING: 'rcf_color_training',
+  MATCH: 'rcf_color_match',
+  TOURNAMENT: 'rcf_color_tournament',
+  OTHER: 'rcf_color_other',
+} as const;
+
+export const DEFAULT_COLORS = {
+  TRAINING: '#2563eb',   // blue
+  MATCH: '#16a34a',      // green
+  TOURNAMENT: '#d97706', // amber
+  OTHER: '#7c3aed',      // purple
+} as const;
+
+export function getEventColor(type: string): string {
+  const matchTypes = ['CHAMPIONSHIP', 'FRIENDLY', 'CUP', 'INTERNAL'];
+  if (type === 'TRAINING') return localStorage.getItem(COLOR_KEYS.TRAINING) || DEFAULT_COLORS.TRAINING;
+  if (matchTypes.includes(type)) return localStorage.getItem(COLOR_KEYS.MATCH) || DEFAULT_COLORS.MATCH;
+  if (type === 'TOURNAMENT') return localStorage.getItem(COLOR_KEYS.TOURNAMENT) || DEFAULT_COLORS.TOURNAMENT;
+  return localStorage.getItem(COLOR_KEYS.OTHER) || DEFAULT_COLORS.OTHER;
 }

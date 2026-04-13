@@ -24,6 +24,19 @@ router.get('/', requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+// Birthdays (virtual events from user birthDates)
+router.get('/birthdays', requireAuth, async (_req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      where: { birthDate: { not: null } },
+      select: { id: true, firstName: true, lastName: true, birthDate: true },
+    });
+    res.json(users);
+  } catch {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 router.get('/:id', requireAuth, async (req: AuthRequest, res) => {
   try {
     const event = await prisma.event.findUnique({
@@ -31,7 +44,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res) => {
       include: {
         createdBy: { select: { firstName: true, lastName: true } },
         attendances: {
-          include: { user: { select: { id: true, firstName: true, lastName: true, position: true, number: true } } },
+          include: { user: { select: { id: true, firstName: true, lastName: true, position: true } } },
         },
       },
     });
@@ -44,11 +57,22 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res) => {
 
 router.post('/', requireCoach, async (req: AuthRequest, res) => {
   try {
-    const { title, type, date, endDate, location, description } = req.body;
+    const { title, type, subtype, date, endDate, meetingTime, location, description, opponent, roundNumber } = req.body;
     if (!title || !type || !date) return res.status(400).json({ error: 'Champs obligatoires manquants' });
 
     const event = await prisma.event.create({
-      data: { title, type, date: new Date(date), endDate: endDate ? new Date(endDate) : null, location, description, createdById: req.user!.id },
+      data: {
+        title, type,
+        subtype: subtype || null,
+        date: new Date(date),
+        endDate: endDate ? new Date(endDate) : null,
+        meetingTime: meetingTime ? new Date(meetingTime) : null,
+        location: location || null,
+        description: description || null,
+        opponent: opponent || null,
+        roundNumber: roundNumber || null,
+        createdById: req.user!.id,
+      },
     });
 
     const players = await prisma.user.findMany({ where: { role: 'PLAYER' }, select: { id: true } });
@@ -67,10 +91,20 @@ router.post('/', requireCoach, async (req: AuthRequest, res) => {
 
 router.put('/:id', requireCoach, async (req: AuthRequest, res) => {
   try {
-    const { title, type, date, endDate, location, description } = req.body;
+    const { title, type, subtype, date, endDate, meetingTime, location, description, opponent, roundNumber } = req.body;
     const event = await prisma.event.update({
       where: { id: req.params.id },
-      data: { title, type, date: new Date(date), endDate: endDate ? new Date(endDate) : null, location, description },
+      data: {
+        title, type,
+        subtype: subtype || null,
+        date: new Date(date),
+        endDate: endDate ? new Date(endDate) : null,
+        meetingTime: meetingTime ? new Date(meetingTime) : null,
+        location: location || null,
+        description: description || null,
+        opponent: opponent || null,
+        roundNumber: roundNumber || null,
+      },
     });
     res.json(event);
   } catch {
@@ -97,6 +131,21 @@ router.post('/:id/attendance', requireAuth, async (req: AuthRequest, res) => {
       create: { userId: req.user!.id, eventId: req.params.id, status, note },
     });
     res.json(attendance);
+  } catch {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Notifier les joueuses qui n'ont pas encore répondu (PENDING)
+router.post('/:id/notify-pending', requireCoach, async (req: AuthRequest, res) => {
+  try {
+    const pending = await prisma.attendance.findMany({
+      where: { eventId: req.params.id, status: 'PENDING' },
+      include: { user: { select: { id: true, firstName: true, lastName: true } } },
+    });
+    // En production: envoyer des notifications push/email
+    // Pour l'instant: retourner la liste des joueuses à notifier
+    res.json({ notified: pending.length, players: pending.map(a => a.user) });
   } catch {
     res.status(500).json({ error: 'Erreur serveur' });
   }

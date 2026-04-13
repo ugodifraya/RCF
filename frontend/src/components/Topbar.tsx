@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 
 interface TopbarProps { onMenuClick: () => void; }
 
 export default function Topbar({ onMenuClick }: TopbarProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, isCoach } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [latestMeasurement, setLatestMeasurement] = useState<{ weight?: number | null; height?: number | null } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -19,6 +21,14 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  useEffect(() => {
+    if (!isCoach) {
+      api.get('/performance/my-measurements').then(r => {
+        if (r.data?.length > 0) setLatestMeasurement(r.data[0]);
+      }).catch(() => {});
+    }
+  }, [isCoach]);
 
   const goProfile = () => { setMenuOpen(false); navigate('/profile'); };
   const doLogout = () => { setMenuOpen(false); logout(); };
@@ -60,10 +70,27 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50">
-              <div className="px-4 py-2 border-b border-gray-100">
+            <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50">
+              <div className="px-4 py-3 border-b border-gray-100">
                 <p className="text-sm font-semibold text-gray-900">{user?.firstName} {user?.lastName}</p>
-                <p className="text-xs text-gray-400">{user?.email}</p>
+                <p className="text-xs text-gray-400 mb-1">{user?.email}</p>
+                {/* Poids / taille dernière saisie (joueuses uniquement) */}
+                {!isCoach && latestMeasurement && (latestMeasurement.weight || latestMeasurement.height) && (
+                  <div className="flex gap-3 mt-2">
+                    {latestMeasurement.weight && (
+                      <div className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-lg">
+                        <span>⚖️</span>
+                        <span className="font-medium">{latestMeasurement.weight} kg</span>
+                      </div>
+                    )}
+                    {latestMeasurement.height && (
+                      <div className="flex items-center gap-1 text-xs bg-green-50 text-green-700 px-2 py-1 rounded-lg">
+                        <span>📏</span>
+                        <span className="font-medium">{latestMeasurement.height} cm</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <button
                 onClick={goProfile}
@@ -71,6 +98,14 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
               >
                 <span>👤</span> Mon profil
               </button>
+              {!isCoach && (
+                <button
+                  onClick={() => { setMenuOpen(false); navigate('/settings'); }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  <span>🎨</span> Personnaliser
+                </button>
+              )}
               <button
                 onClick={doLogout}
                 className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"

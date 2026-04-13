@@ -12,7 +12,9 @@ const STATUS_CLASSES: Record<AttendanceStatus, string> = {
   PRESENT: 'badge-green', ABSENT: 'badge-red', MAYBE: 'badge-yellow', PENDING: 'badge-gray',
 };
 const EVENT_TYPE_LABELS: Record<EventType, string> = {
-  TRAINING: 'Entraînement', MATCH: 'Match', OTHER: 'Événement',
+  TRAINING: 'Entraînement', MATCH: 'Match', CHAMPIONSHIP: 'Championnat',
+  FRIENDLY: 'Amical', CUP: 'Coupe', TOURNAMENT: 'Tournoi',
+  INTERNAL: 'Match interne', OTHER: 'Événement',
 };
 
 interface ParsedMatch {

@@ -16,6 +16,7 @@ import Statistics from './pages/Statistics';
 import Players from './pages/Players';
 import Performance from './pages/Performance';
 import Profile from './pages/Profile';
+import PlayerSettings from './pages/PlayerSettings';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -52,6 +53,7 @@ function AppRoutes() {
         <Route path="players" element={<Players />} />
         <Route path="performance" element={<Performance />} />
         <Route path="profile" element={<Profile />} />
+        <Route path="settings" element={<PlayerSettings />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

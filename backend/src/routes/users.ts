@@ -8,13 +8,12 @@ import { requireAuth, requireCoach, AuthRequest } from '../middleware/auth';
 const router = Router();
 const prisma = new PrismaClient();
 
+const USER_SELECT = { id: true, email: true, firstName: true, lastName: true, role: true, position: true, birthDate: true, avatarUrl: true, createdAt: true } as const;
+
 // Coach : liste tous les utilisateurs
 router.get('/', requireCoach, async (_req, res) => {
   try {
-    const users = await prisma.user.findMany({
-      select: { id: true, email: true, firstName: true, lastName: true, role: true, position: true, number: true, avatarUrl: true, createdAt: true },
-      orderBy: [{ lastName: 'asc' }],
-    });
+    const users = await prisma.user.findMany({ select: USER_SELECT, orderBy: [{ lastName: 'asc' }] });
     res.json(users);
   } catch (err) {
     console.error('GET /users error:', err);
@@ -27,7 +26,7 @@ router.get('/players', requireAuth, async (_req, res) => {
   try {
     const users = await prisma.user.findMany({
       where: { role: 'PLAYER' },
-      select: { id: true, firstName: true, lastName: true, position: true, number: true, avatarUrl: true },
+      select: { id: true, firstName: true, lastName: true, position: true, birthDate: true, avatarUrl: true },
       orderBy: [{ lastName: 'asc' }],
     });
     res.json(users);
@@ -40,7 +39,7 @@ router.get('/players', requireAuth, async (_req, res) => {
 // Joueuse : modifier son propre profil
 router.patch('/me', requireAuth, async (req: AuthRequest, res) => {
   try {
-    const { firstName, lastName, position, number, avatarUrl, email, password, currentPassword } = req.body;
+    const { firstName, lastName, position, birthDate, avatarUrl, email, password, currentPassword } = req.body;
 
     if (password && currentPassword) {
       const current = await prisma.user.findUnique({ where: { id: req.user!.id } });
@@ -53,16 +52,12 @@ router.patch('/me', requireAuth, async (req: AuthRequest, res) => {
     if (firstName !== undefined) data.firstName = firstName;
     if (lastName !== undefined) data.lastName = lastName;
     if (position !== undefined) data.position = position || null;
-    if (number !== undefined) data.number = number ? parseInt(number) : null;
+    if (birthDate !== undefined) data.birthDate = birthDate ? new Date(birthDate) : null;
     if (avatarUrl !== undefined) data.avatarUrl = avatarUrl;
     if (email) data.email = email;
     if (password) data.password = await bcrypt.hash(password, 10);
 
-    const user = await prisma.user.update({
-      where: { id: req.user!.id },
-      data,
-      select: { id: true, email: true, firstName: true, lastName: true, role: true, position: true, number: true, avatarUrl: true },
-    });
+    const user = await prisma.user.update({ where: { id: req.user!.id }, data, select: USER_SELECT });
     res.json(user);
   } catch (err) {
     console.error('PATCH /users/me error:', err);
@@ -94,9 +89,9 @@ router.post('/me/avatar', requireAuth, async (req: AuthRequest, res) => {
 });
 
 // Coach : créer un compte joueuse
-router.post('/', requireCoach, async (req: AuthRequest, res) => {
+router.post('/', requireCoach, async (_req: AuthRequest, res) => {
   try {
-    const { email, firstName, lastName, position, number, password } = req.body;
+    const { email, firstName, lastName, position, birthDate, password } = _req.body;
     if (!email || !firstName || !lastName || !password) {
       return res.status(400).json({ error: 'Champs requis manquants' });
     }
@@ -105,15 +100,11 @@ router.post('/', requireCoach, async (req: AuthRequest, res) => {
     const hashed = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: {
-        email,
-        firstName,
-        lastName,
-        role: 'PLAYER',
-        password: hashed,
+        email, firstName, lastName, role: 'PLAYER', password: hashed,
         position: position || null,
-        number: number ? parseInt(number) : null,
+        birthDate: birthDate ? new Date(birthDate) : null,
       },
-      select: { id: true, email: true, firstName: true, lastName: true, role: true, position: true, number: true, avatarUrl: true },
+      select: USER_SELECT,
     });
     res.status(201).json(user);
   } catch (err) {
@@ -141,21 +132,17 @@ router.patch('/:id/role', requireCoach, async (req: AuthRequest, res) => {
   }
 });
 
-// Coach : modifier le profil d'une joueuse  ← DOIT ÊTRE EN DERNIER (route générique)
+// Coach : modifier le profil d'une joueuse
 router.patch('/:id', requireCoach, async (req: AuthRequest, res) => {
   try {
-    const { firstName, lastName, position, number, email } = req.body;
+    const { firstName, lastName, position, birthDate, email } = req.body;
     const data: Record<string, unknown> = {};
     if (firstName !== undefined) data.firstName = firstName;
     if (lastName !== undefined) data.lastName = lastName;
     if (position !== undefined) data.position = position || null;
-    if (number !== undefined) data.number = number ? parseInt(number) : null;
+    if (birthDate !== undefined) data.birthDate = birthDate ? new Date(birthDate) : null;
     if (email) data.email = email;
-    const user = await prisma.user.update({
-      where: { id: req.params.id },
-      data,
-      select: { id: true, email: true, firstName: true, lastName: true, role: true, position: true, number: true, avatarUrl: true },
-    });
+    const user = await prisma.user.update({ where: { id: req.params.id }, data, select: USER_SELECT });
     res.json(user);
   } catch (err) {
     console.error('PATCH /users/:id error:', err);

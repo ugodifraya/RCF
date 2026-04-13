@@ -9,26 +9,22 @@ export default function Players() {
   const [injuries, setInjuries] = useState<Injury[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Add player modal
   const [showAddPlayer, setShowAddPlayer] = useState(false);
-  const [addForm, setAddForm] = useState({ firstName: '', lastName: '', email: '', password: '', position: '', number: '' });
+  const [addForm, setAddForm] = useState({ firstName: '', lastName: '', email: '', password: '', position: '', birthDate: '' });
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState('');
 
-  // Edit player modal
   const [editPlayer, setEditPlayer] = useState<User | null>(null);
-  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', position: '', number: '' });
+  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', position: '', birthDate: '' });
   const [editSaving, setEditSaving] = useState(false);
 
   const load = () => {
     setLoading(true);
-    Promise.all([
-      api.get('/users'),
-      api.get('/injuries'),
-    ]).then(([u, inj]) => {
-      setPlayers(u.data.filter((user: User) => user.role === 'PLAYER'));
-      setInjuries(inj.data);
-    }).catch(() => {}).finally(() => setLoading(false));
+    Promise.all([api.get('/users'), api.get('/injuries')])
+      .then(([u, inj]) => {
+        setPlayers(u.data.filter((user: User) => user.role === 'PLAYER'));
+        setInjuries(inj.data);
+      }).catch(() => {}).finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);
@@ -39,7 +35,7 @@ export default function Players() {
     try {
       await api.post('/users', addForm);
       setShowAddPlayer(false);
-      setAddForm({ firstName: '', lastName: '', email: '', password: '', position: '', number: '' });
+      setAddForm({ firstName: '', lastName: '', email: '', password: '', position: '', birthDate: '' });
       load();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } };
@@ -49,7 +45,7 @@ export default function Players() {
 
   const openEdit = (p: User) => {
     setEditPlayer(p);
-    setEditForm({ firstName: p.firstName, lastName: p.lastName, email: p.email || '', position: p.position || '', number: p.number?.toString() || '' });
+    setEditForm({ firstName: p.firstName, lastName: p.lastName, email: p.email || '', position: p.position || '', birthDate: p.birthDate ? p.birthDate.slice(0, 10) : '' });
   };
 
   const handleEditPlayer = async () => {
@@ -69,6 +65,12 @@ export default function Players() {
 
   const activeInjuries = injuries.filter(i => i.status === 'ACTIVE');
 
+  const getAge = (birthDate?: string | null) => {
+    if (!birthDate) return null;
+    const age = Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 24 * 3600 * 1000));
+    return age;
+  };
+
   if (loading) return <div className="text-center py-10"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto" /></div>;
 
   return (
@@ -83,7 +85,6 @@ export default function Players() {
         </button>
       </div>
 
-      {/* Effectif */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {players.length === 0 && (
           <div className="col-span-full card text-center py-10">
@@ -93,6 +94,7 @@ export default function Players() {
         )}
         {players.map(p => {
           const playerInjuries = activeInjuries.filter(i => i.userId === p.id);
+          const age = getAge(p.birthDate);
           return (
             <div key={p.id} className={`card hover:shadow-md transition-shadow ${playerInjuries.length > 0 ? 'border-red-200' : ''}`}>
               <div className="flex items-center gap-3">
@@ -107,7 +109,7 @@ export default function Players() {
                   <p className="font-semibold text-gray-900">{p.firstName} {p.lastName}</p>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     {p.position && <span className="text-xs text-gray-500">{p.position}</span>}
-                    {p.number && <span className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded">#{p.number}</span>}
+                    {age && <span className="text-xs text-gray-400">{age} ans</span>}
                   </div>
                   {p.email && <p className="text-xs text-gray-400 truncate mt-0.5">{p.email}</p>}
                 </div>
@@ -132,7 +134,6 @@ export default function Players() {
         })}
       </div>
 
-      {/* Modal ajout joueuse */}
       {showAddPlayer && (
         <Modal title="Ajouter une joueuse" onClose={() => setShowAddPlayer(false)}>
           <div className="space-y-4">
@@ -142,6 +143,7 @@ export default function Players() {
             </div>
             <div><label className="label">Email *</label><input type="email" className="input" value={addForm.email} onChange={setA('email')} /></div>
             <div><label className="label">Mot de passe temporaire *</label><input type="password" className="input" value={addForm.password} onChange={setA('password')} placeholder="Elle pourra le changer après" /></div>
+            <div><label className="label">Date de naissance</label><input type="date" className="input" value={addForm.birthDate} onChange={setA('birthDate')} /></div>
             <div>
               <label className="label">Poste</label>
               <select className="input" value={addForm.position} onChange={setA('position')}>
@@ -149,7 +151,6 @@ export default function Players() {
                 {POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}
               </select>
             </div>
-            <div><label className="label">Numéro</label><input type="number" className="input" placeholder="Ex: 10" value={addForm.number} onChange={setA('number')} /></div>
             {addError && <p className="text-sm text-red-600">{addError}</p>}
             <div className="flex gap-2">
               <button onClick={handleAddPlayer} disabled={addSaving || !addForm.firstName || !addForm.lastName || !addForm.email || !addForm.password} className="btn-primary flex-1">
@@ -161,7 +162,6 @@ export default function Players() {
         </Modal>
       )}
 
-      {/* Modal édition joueuse */}
       {editPlayer && (
         <Modal title={`Modifier — ${editPlayer.firstName} ${editPlayer.lastName}`} onClose={() => setEditPlayer(null)}>
           <div className="space-y-4">
@@ -170,6 +170,7 @@ export default function Players() {
               <div><label className="label">Nom</label><input className="input" value={editForm.lastName} onChange={setE('lastName')} /></div>
             </div>
             <div><label className="label">Email</label><input type="email" className="input" value={editForm.email} onChange={setE('email')} /></div>
+            <div><label className="label">Date de naissance</label><input type="date" className="input" value={editForm.birthDate} onChange={setE('birthDate')} /></div>
             <div>
               <label className="label">Poste</label>
               <select className="input" value={editForm.position} onChange={setE('position')}>
@@ -177,7 +178,6 @@ export default function Players() {
                 {POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}
               </select>
             </div>
-            <div><label className="label">Numéro</label><input type="number" className="input" value={editForm.number} onChange={setE('number')} /></div>
             <div className="flex gap-2">
               <button onClick={handleEditPlayer} disabled={editSaving} className="btn-primary flex-1">
                 {editSaving ? 'Sauvegarde...' : 'Sauvegarder'}

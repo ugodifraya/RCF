@@ -9,6 +9,7 @@ export default function Profile() {
   const [lastName, setLastName] = useState(user?.lastName || '');
   const [email, setEmail] = useState(user?.email || '');
   const [position, setPosition] = useState(user?.position || '');
+  const [birthDate, setBirthDate] = useState(user?.birthDate ? user.birthDate.slice(0, 10) : '');
   const [saving, setSaving] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
@@ -52,7 +53,7 @@ export default function Profile() {
     setSaving(true);
     setProfileMsg(null);
     try {
-      const payload: Record<string, unknown> = { firstName, lastName, email };
+      const payload: Record<string, unknown> = { firstName, lastName, email, birthDate: birthDate || null };
       if (!isCoach) payload.position = position || undefined;
       const res = await api.patch('/users/me', payload);
       setUser(res.data);
@@ -227,6 +228,7 @@ export default function Profile() {
           <div><label className="label">Nom</label><input className="input" value={lastName} onChange={e => setLastName(e.target.value)} /></div>
         </div>
         <div><label className="label">Email</label><input type="email" className="input" value={email} onChange={e => setEmail(e.target.value)} /></div>
+        <div><label className="label">Date de naissance</label><input type="date" className="input" value={birthDate} onChange={e => setBirthDate(e.target.value)} max={new Date().toISOString().slice(0, 10)} /></div>
         {/* Poste uniquement pour les joueuses */}
         {!isCoach && (
           <div>
