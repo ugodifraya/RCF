@@ -68,21 +68,6 @@ export default function Calendar() {
   const [matchForm, setMatchForm] = useState({ date: '', opponent: '', location: '', homeAway: 'HOME', scoreHome: '', scoreAway: '', competition: '', notes: '' });
   const [savingMatch, setSavingMatch] = useState(false);
 
-  // FFF import state
-  const [showFFFModal, setShowFFFModal] = useState(false);
-  const [fffClubQuery, setFffClubQuery] = useState('');
-  const [fffClubs, setFffClubs] = useState<{id:string;name:string;city:string}[]>([]);
-  const [fffSelectedClub, setFffSelectedClub] = useState<{id:string;name:string;city:string}|null>(null);
-  const [fffTeams, setFffTeams] = useState<{id:string;name:string;category:string}[]>([]);
-  const [fffSelectedTeam, setFffSelectedTeam] = useState<{id:string;name:string;category:string}|null>(null);
-  const [fffMatches, setFffMatches] = useState<{title:string;date:string;location:string;homeTeam:string;awayTeam:string;competition:string;isHome:boolean}[]>([]);
-  const [fffSelected, setFffSelected] = useState<Set<number>>(new Set());
-  const [fffSearching, setFffSearching] = useState(false);
-  const [fffLoadingCal, setFffLoadingCal] = useState(false);
-  const [fffImporting, setFffImporting] = useState(false);
-  const [fffStep, setFffStep] = useState<'search'|'teams'|'preview'>('search');
-  const [fffSavedClub, setFffSavedClub] = useState<string>('');
-  const [fffSavedTeam, setFffSavedTeam] = useState<string>('');
 
   const load = () => {
     setLoading(true);
@@ -92,15 +77,6 @@ export default function Calendar() {
   };
 
   useEffect(() => { load(); }, []);
-
-  // Charger les settings FFF sauvegardés
-  useEffect(() => {
-    if (!isCoach) return;
-    api.get('/fff/settings').then(r => {
-      if (r.data.fffClubName) setFffSavedClub(r.data.fffClubName);
-      if (r.data.fffTeamName) setFffSavedTeam(r.data.fffTeamName);
-    }).catch(() => {});
-  }, [isCoach]);
 
   const saveMatchColor = (color: string) => {
     setMatchColor(color);
@@ -215,55 +191,6 @@ export default function Calendar() {
   const setMF = (f: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setMatchForm(prev => ({ ...prev, [f]: e.target.value }));
 
-  const openFFFModal = () => {
-    setFffStep('search'); setFffClubQuery(''); setFffClubs([]); setFffSelectedClub(null);
-    setFffTeams([]); setFffSelectedTeam(null); setFffMatches([]); setFffSelected(new Set());
-    setShowFFFModal(true);
-  };
-
-  const handleFFFSearchClub = async () => {
-    if (fffClubQuery.length < 2) return;
-    setFffSearching(true); setFffClubs([]); setFffSelectedClub(null);
-    try {
-      const r = await api.get(`/fff/search-clubs?q=${encodeURIComponent(fffClubQuery)}`);
-      setFffClubs(r.data);
-    } catch { } finally { setFffSearching(false); }
-  };
-
-  const handleFFFSelectClub = async (club: {id:string;name:string;city:string}) => {
-    setFffSelectedClub(club); setFffTeams([]); setFffSelectedTeam(null);
-    try {
-      const r = await api.get(`/fff/clubs/${club.id}/teams`);
-      setFffTeams(r.data); setFffStep('teams');
-    } catch { }
-  };
-
-  const handleFFFSelectTeam = async (team: {id:string;name:string;category:string}) => {
-    setFffSelectedTeam(team); setFffLoadingCal(true);
-    try {
-      const r = await api.get(`/fff/clubs/${fffSelectedClub!.id}/teams/${team.id}/calendar`);
-      setFffMatches(r.data);
-      setFffSelected(new Set(r.data.map((_:unknown, i:number) => i)));
-      setFffStep('preview');
-    } catch { } finally { setFffLoadingCal(false); }
-  };
-
-  const handleFFFImport = async () => {
-    const selected = fffMatches.filter((_, i) => fffSelected.has(i));
-    if (!selected.length) return;
-    setFffImporting(true);
-    try {
-      const r = await api.post('/fff/import', {
-        clNo: fffSelectedClub!.id, eqNo: fffSelectedTeam!.id,
-        matches: selected, saveSettings: true,
-        clubName: fffSelectedClub!.name, teamName: fffSelectedTeam!.name,
-      });
-      setFffSavedClub(fffSelectedClub!.name); setFffSavedTeam(fffSelectedTeam!.name);
-      setShowFFFModal(false); load();
-      alert(`${r.data.created} match(s) importé(s) !`);
-    } catch { } finally { setFffImporting(false); }
-  };
-
   const itemColor = (item: CalItem) => {
     if (item.kind === 'match') return matchColor;
     const ev = item.data as Event;
@@ -315,10 +242,6 @@ export default function Calendar() {
           )}
           {isCoach && (
             <>
-              <button onClick={openFFFModal} className="btn-secondary text-sm">
-                Importer FFF
-                {fffSavedTeam && <span className="ml-1 text-xs text-gray-400">({fffSavedTeam.split(' ').slice(0,2).join(' ')})</span>}
-              </button>
               <button onClick={() => { setEditMatch(null); setMatchForm({ date: '', opponent: '', location: '', homeAway: 'HOME', scoreHome: '', scoreAway: '', competition: '', notes: '' }); setShowMatchForm(true); }} className="btn-secondary text-sm">
                 + Match
               </button>
@@ -479,101 +402,6 @@ export default function Calendar() {
         </Modal>
       )}
 
-      {/* Modal Import FFF */}
-      {showFFFModal && (
-        <Modal title="Importer depuis FFF" onClose={() => setShowFFFModal(false)}>
-          {fffSavedClub && fffSavedTeam && fffStep === 'search' && (
-            <div className="mb-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
-              Dernier import : <strong>{fffSavedClub}</strong> — <strong>{fffSavedTeam}</strong>
-            </div>
-          )}
-
-          {fffStep === 'search' && (
-            <div className="space-y-4">
-              <p className="text-sm text-gray-500">Recherchez votre club pour récupérer le calendrier officiel FFF.</p>
-              <div>
-                <label className="label">Nom du club</label>
-                <div className="flex gap-2">
-                  <input className="input flex-1" value={fffClubQuery}
-                    onChange={e => setFffClubQuery(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleFFFSearchClub())}
-                    placeholder="Ex: Racing Club de France..." />
-                  <button type="button" onClick={handleFFFSearchClub} disabled={fffSearching || fffClubQuery.length < 2} className="btn-secondary px-4">
-                    {fffSearching ? '...' : 'Chercher'}
-                  </button>
-                </div>
-              </div>
-              {fffClubs.length > 0 && (
-                <div className="space-y-1 max-h-56 overflow-y-auto border border-gray-200 rounded-lg">
-                  {fffClubs.map(c => (
-                    <button key={c.id} type="button" onClick={() => handleFFFSelectClub(c)}
-                      className="w-full text-left px-4 py-2.5 hover:bg-primary-50 text-sm border-b border-gray-100 last:border-0">
-                      <span className="font-medium text-gray-900">{c.name}</span>
-                      {c.city && <span className="text-gray-400 ml-2 text-xs">{c.city}</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <button onClick={() => setShowFFFModal(false)} className="btn-secondary w-full">Annuler</button>
-            </div>
-          )}
-
-          {fffStep === 'teams' && (
-            <div className="space-y-4">
-              <div className="p-3 bg-primary-50 rounded-lg flex items-center justify-between">
-                <p className="font-medium text-primary-800 text-sm">{fffSelectedClub?.name}</p>
-                <button type="button" onClick={() => { setFffSelectedClub(null); setFffStep('search'); }} className="text-primary-400 hover:text-primary-600 text-xs">Changer</button>
-              </div>
-              <p className="text-sm font-medium text-gray-700">Sélectionnez l'équipe :</p>
-              <div className="space-y-1 max-h-56 overflow-y-auto border border-gray-200 rounded-lg">
-                {fffTeams.map(t => (
-                  <button key={t.id} type="button" onClick={() => handleFFFSelectTeam(t)}
-                    className="w-full text-left px-4 py-2.5 hover:bg-primary-50 text-sm border-b border-gray-100 last:border-0">
-                    <span className="font-medium text-gray-900">{t.name}</span>
-                    {t.category && <span className="text-gray-400 ml-2 text-xs">{t.category}</span>}
-                  </button>
-                ))}
-              </div>
-              {fffLoadingCal && <div className="flex items-center gap-2 text-sm text-gray-500"><div className="animate-spin w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full"/>Chargement du calendrier...</div>}
-              <button onClick={() => setFffStep('search')} className="btn-secondary w-full">Retour</button>
-            </div>
-          )}
-
-          {fffStep === 'preview' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-600">{fffMatches.length} match(s) — {fffSelected.size} sélectionné(s)</p>
-                <button onClick={() => setFffSelected(fffSelected.size === fffMatches.length ? new Set() : new Set(fffMatches.map((_,i)=>i)))} className="text-xs text-primary-600 hover:underline">
-                  {fffSelected.size === fffMatches.length ? 'Tout désélectionner' : 'Tout sélectionner'}
-                </button>
-              </div>
-              <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-                {fffMatches.map((m, i) => (
-                  <label key={i} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer text-sm transition-colors ${fffSelected.has(i) ? 'border-primary-300 bg-primary-50' : 'border-gray-200 hover:bg-gray-50'}`}>
-                    <input type="checkbox" checked={fffSelected.has(i)} onChange={() => {
-                      const n = new Set(fffSelected); n.has(i) ? n.delete(i) : n.add(i); setFffSelected(n);
-                    }} className="mt-0.5 accent-primary-600" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900">{m.title}</p>
-                      <p className="text-xs text-gray-500">{format(new Date(m.date), 'EEEE d MMM yyyy à HH:mm', { locale: fr })}{m.location && ` · ${m.location}`}</p>
-                      <div className="flex gap-2 mt-0.5">
-                        {m.competition && <span className="text-xs text-gray-400">{m.competition}</span>}
-                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${m.isHome ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{m.isHome ? 'Domicile' : 'Extérieur'}</span>
-                      </div>
-                    </div>
-                  </label>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <button onClick={handleFFFImport} disabled={fffImporting || fffSelected.size === 0} className="btn-primary flex-1">
-                  {fffImporting ? 'Import...' : `Importer ${fffSelected.size} match(s)`}
-                </button>
-                <button onClick={() => setFffStep('teams')} className="btn-secondary">Retour</button>
-              </div>
-            </div>
-          )}
-        </Modal>
-      )}
     </div>
   );
 }
