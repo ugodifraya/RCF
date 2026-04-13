@@ -12,6 +12,7 @@ import statsRoutes from './routes/stats';
 import injuryRoutes from './routes/injuries';
 import performanceRoutes from './routes/performance';
 import fffImportRoutes from './routes/fffImport';
+import fffRoutes from './routes/fff';
 
 dotenv.config();
 
@@ -32,6 +33,7 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/injuries', injuryRoutes);
 app.use('/api/performance', performanceRoutes);
 app.use('/api/events', fffImportRoutes);
+app.use('/api/fff', fffRoutes);
 
 app.get('/api/ping', (_req, res) => res.json({ ok: true }));
 

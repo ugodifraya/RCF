@@ -218,6 +218,11 @@ model PhysicalMeasurement {
   user User @relation(fields: [userId], references: [id])
 }
 
+model Setting {
+  key   String @id
+  value String
+}
+
 model PerformanceTest {
   id        String   @id @default(cuid())
   userId    String
