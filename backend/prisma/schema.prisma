@@ -17,9 +17,12 @@ model User {
   position  String?
   birthDate DateTime?
   avatarUrl String?
+  teamId    String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
+  team                   Team?                   @relation("TeamMembers", fields: [teamId], references: [id])
+  coachOfTeam            Team?                   @relation("CoachTeam")
   attendances            Attendance[]
   questionnaireResponses QuestionnaireResponse[]
   cycleTrackings         CycleTracking[]
@@ -28,8 +31,8 @@ model User {
   createdEvents          Event[]
   createdQuestionnaires  Questionnaire[]
   createdMatches         Match[]
-  votesCast              MatchPlayerVote[]    @relation("VotesCast")
-  votesReceived          MatchPlayerVote[]    @relation("VotesReceived")
+  votesCast              MatchPlayerVote[]       @relation("VotesCast")
+  votesReceived          MatchPlayerVote[]       @relation("VotesReceived")
   matchRatings           MatchRating[]
   physicalMeasurements   PhysicalMeasurement[]
   performanceTests       PerformanceTest[]
@@ -221,6 +224,18 @@ model PhysicalMeasurement {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
+}
+
+model Team {
+  id         String   @id @default(cuid())
+  name       String
+  category   String?
+  inviteCode String   @unique
+  createdAt  DateTime @default(now())
+  coachId    String   @unique
+
+  coach   User   @relation("CoachTeam", fields: [coachId], references: [id])
+  members User[] @relation("TeamMembers")
 }
 
 model Setting {

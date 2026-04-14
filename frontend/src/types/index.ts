@@ -14,7 +14,18 @@ export interface User {
   position?: string;
   birthDate?: string | null;
   avatarUrl?: string;
+  teamId?: string | null;
   createdAt?: string;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  category?: string | null;
+  inviteCode: string;
+  coachId: string;
+  createdAt: string;
+  members?: User[];
 }
 
 export interface Event {

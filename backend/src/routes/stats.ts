@@ -91,7 +91,7 @@ router.get('/players', requireCoach, async (_req, res) => {
       const activeInjuries = p.injuries.filter(i => i.status === 'ACTIVE').length;
 
       return {
-        id: p.id, firstName: p.firstName, lastName: p.lastName, position: p.position, number: p.number,
+        id: p.id, firstName: p.firstName, lastName: p.lastName, position: p.position,
         attendanceRate: totalEvents > 0 ? Math.round((present / totalEvents) * 100) : 0,
         present, absent, totalEvents,
         goals, assists, minutesPlayed, matchesPlayed, yellowCards, redCards,

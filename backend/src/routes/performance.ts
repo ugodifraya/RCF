@@ -136,7 +136,7 @@ router.get('/dashboard', requireCoach, async (_req, res) => {
       });
 
       return {
-        id: p.id, firstName: p.firstName, lastName: p.lastName, position: p.position, number: p.number, avatarUrl: p.avatarUrl,
+        id: p.id, firstName: p.firstName, lastName: p.lastName, position: p.position, avatarUrl: p.avatarUrl,
         latestMeasurement: latest ? { weight: latest.weight, height: latest.height, date: latest.date } : null,
         weightDiff, heightDiff,
         tests: testsByType,

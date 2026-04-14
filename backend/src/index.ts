@@ -13,6 +13,7 @@ import injuryRoutes from './routes/injuries';
 import performanceRoutes from './routes/performance';
 import fffImportRoutes from './routes/fffImport';
 import fffRoutes from './routes/fff';
+import teamRoutes from './routes/teams';
 
 dotenv.config();
 
@@ -32,6 +33,7 @@ app.use('/api/matches', matchRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/injuries', injuryRoutes);
 app.use('/api/performance', performanceRoutes);
+app.use('/api/teams', teamRoutes);
 app.use('/api/events', fffImportRoutes);
 app.use('/api/fff', fffRoutes);
 

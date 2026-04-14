@@ -17,6 +17,7 @@ import Players from './pages/Players';
 import Performance from './pages/Performance';
 import Profile from './pages/Profile';
 import PlayerSettings from './pages/PlayerSettings';
+import JoinTeam from './pages/JoinTeam';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -39,6 +40,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+      <Route path="/join/:code" element={<JoinTeam />} />
       <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
         <Route index element={<Dashboard />} />
         <Route path="events" element={<Events />} />

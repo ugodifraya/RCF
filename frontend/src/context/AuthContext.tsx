@@ -15,6 +15,7 @@ interface AuthContextType {
 interface RegisterData {
   email: string; password: string; firstName: string; lastName: string;
   role?: string; position?: string; birthDate?: string;
+  teamName?: string; teamCategory?: string; teamCode?: string;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);

@@ -27,7 +27,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res) => {
       include: {
         createdBy: { select: { firstName: true, lastName: true } },
         playerStats: {
-          include: { user: { select: { id: true, firstName: true, lastName: true, position: true, number: true } } },
+          include: { user: { select: { id: true, firstName: true, lastName: true, position: true } } },
           orderBy: [{ starter: 'desc' }, { minutesPlayed: 'desc' }],
         },
         playerVotes: {
@@ -126,7 +126,7 @@ router.post('/:id/stats', requireCoach, async (req, res) => {
     }
     const match = await prisma.match.findUnique({
       where: { id: req.params.id },
-      include: { playerStats: { include: { user: { select: { id: true, firstName: true, lastName: true, position: true, number: true } } } } },
+      include: { playerStats: { include: { user: { select: { id: true, firstName: true, lastName: true, position: true } } } } },
     });
     res.json(match);
   } catch {
