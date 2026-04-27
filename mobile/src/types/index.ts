@@ -209,8 +209,8 @@ export const DEFAULT_COLORS = {
 // colors est un dictionnaire chargé depuis AsyncStorage (clé → valeur hex)
 export function getEventColor(type: string, colors?: Record<string, string>): string {
   const matchTypes = ['CHAMPIONSHIP', 'FRIENDLY', 'CUP', 'INTERNAL'];
-  if (type === 'TRAINING')           return colors?.[COLOR_KEYS.TRAINING]   || DEFAULT_COLORS.TRAINING;
-  if (matchTypes.includes(type))     return colors?.[COLOR_KEYS.MATCH]      || DEFAULT_COLORS.MATCH;
-  if (type === 'TOURNAMENT')         return colors?.[COLOR_KEYS.TOURNAMENT] || DEFAULT_COLORS.TOURNAMENT;
+  if (type === 'TRAINING')       return colors?.[COLOR_KEYS.TRAINING]   || DEFAULT_COLORS.TRAINING;
+  if (matchTypes.includes(type)) return colors?.[COLOR_KEYS.MATCH]      || DEFAULT_COLORS.MATCH;
+  if (type === 'TOURNAMENT')     return colors?.[COLOR_KEYS.TOURNAMENT] || DEFAULT_COLORS.TOURNAMENT;
   return colors?.[COLOR_KEYS.OTHER] || DEFAULT_COLORS.OTHER;
 }

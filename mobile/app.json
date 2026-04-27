@@ -5,8 +5,11 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "rcf",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "newArchEnabled": true,
     "splash": {
+      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#1e2a8e"
     },
@@ -16,22 +19,19 @@
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1e2a8e"
       },
-      "package": "com.rcf.mobile"
+      "package": "com.rcf.mobile",
+      "edgeToEdgeEnabled": true
     },
     "web": {
       "bundler": "metro",
-      "output": "static"
+      "output": "static",
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#1e2a8e"
-        }
-      ]
+      "expo-router"
     ],
     "experiments": {
       "typedRoutes": true
