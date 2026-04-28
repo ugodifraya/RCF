@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, Modal, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -197,6 +197,9 @@ export default function CalendarScreen() {
     } catch { } finally { setNotifying(null); }
   };
 
+  /* ── État modal création ── */
+  const [showCreate, setShowCreate] = useState(false);
+
   const sharedProps = { user, isCoach, colors, notifying, handleAttendance, handleDeleteEvent, handleDeleteMatch, handleNotify };
 
   /* ── Render ── */
@@ -210,7 +213,22 @@ export default function CalendarScreen() {
             <Text className="text-2xl font-bold text-gray-900">Calendrier</Text>
             <Text className="text-sm text-gray-500 mt-0.5">Entraînements, matchs et anniversaires</Text>
           </View>
+          {isCoach && (
+            <TouchableOpacity
+              onPress={() => setShowCreate(true)}
+              className="bg-blue-600 px-4 py-2 rounded-xl"
+            >
+              <Text className="text-white text-sm font-semibold">+ Événement</Text>
+            </TouchableOpacity>
+          )}
         </View>
+
+        {/* Modal création (coach) */}
+        <CreateEventModal
+          visible={showCreate}
+          onClose={() => setShowCreate(false)}
+          onCreated={() => { setShowCreate(false); load(); }}
+        />
 
         {/* Toggle */}
         <View className="mx-4 mt-2 mb-3 flex-row bg-white rounded-xl border border-gray-200 p-1 self-start">
@@ -489,5 +507,114 @@ function ListView({ items, filter, onFilterChange, sharedProps }: {
         </View>
       )}
     </View>
+  );
+}
+
+/* ─── CreateEventModal ───────────────────────────────────────────────────── */
+
+const EVENT_TYPES = [
+  { key: 'TRAINING',     label: 'Entraînement',    icon: '🏃' },
+  { key: 'FRIENDLY',     label: 'Match amical',     icon: '🤝' },
+  { key: 'CHAMPIONSHIP', label: 'Championnat',      icon: '🏆' },
+  { key: 'TOURNAMENT',   label: 'Tournoi',          icon: '🏅' },
+  { key: 'OTHER',        label: 'Autre',            icon: '📌' },
+] as const;
+
+const PRESET_COLORS = ['#2563eb', '#16a34a', '#dc2626', '#d97706', '#7c3aed', '#0891b2'];
+
+function CreateEventModal({ visible, onClose, onCreated }: {
+  visible: boolean;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [title,    setTitle]    = useState('');
+  const [type,     setType]     = useState<string>('TRAINING');
+  const [date,     setDate]     = useState('');
+  const [time,     setTime]     = useState('');
+  const [location, setLocation] = useState('');
+  const [color,    setColor]    = useState(PRESET_COLORS[0]);
+  const [saving,   setSaving]   = useState(false);
+
+  const reset = () => { setTitle(''); setType('TRAINING'); setDate(''); setTime(''); setLocation(''); setColor(PRESET_COLORS[0]); };
+
+  const handleCreate = async () => {
+    if (!date) return Alert.alert('Champ requis', 'La date est obligatoire.');
+    setSaving(true);
+    try {
+      const isoDate = `${date}T${time || '00:00'}:00`;
+      await api.post('/events', {
+        title: title || EVENT_TYPES.find(t => t.key === type)?.label,
+        type:  ['FRIENDLY', 'CHAMPIONSHIP'].includes(type) ? 'MATCH' : type,
+        subtype: type,
+        date: isoDate,
+        location: location || null,
+      });
+      reset();
+      onCreated();
+    } catch { Alert.alert('Erreur', 'Impossible de créer l\'événement.'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1 justify-end bg-black/50">
+        <View className="bg-white rounded-t-3xl px-5 pt-4 pb-8">
+          {/* Drag + titre */}
+          <View className="w-10 h-1 bg-gray-200 rounded-full self-center mb-4" />
+          <Text className="text-lg font-bold text-gray-900 mb-4">Nouvel événement</Text>
+
+          {/* Type */}
+          <Text className="text-xs font-semibold text-gray-500 uppercase mb-2">Type</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+            <View className="flex-row" style={{ gap: 8 }}>
+              {EVENT_TYPES.map(t => (
+                <TouchableOpacity key={t.key} onPress={() => setType(t.key)}
+                  className={`px-3 py-2 rounded-xl border-2 flex-row items-center ${type === t.key ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
+                  style={{ gap: 4 }}>
+                  <Text>{t.icon}</Text>
+                  <Text className={`text-sm font-medium ${type === t.key ? 'text-blue-700' : 'text-gray-600'}`}>{t.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+
+          {/* Titre */}
+          <TextInput className="bg-gray-100 rounded-xl px-4 py-3 text-gray-900 mb-3"
+            placeholder="Titre (optionnel)" value={title} onChangeText={setTitle} />
+
+          {/* Date + Heure */}
+          <View className="flex-row mb-3" style={{ gap: 8 }}>
+            <TextInput className="bg-gray-100 rounded-xl px-4 py-3 text-gray-900 flex-1"
+              placeholder="Date  AAAA-MM-JJ" value={date} onChangeText={setDate} />
+            <TextInput className="bg-gray-100 rounded-xl px-4 py-3 text-gray-900 flex-1"
+              placeholder="Heure  HH:MM" value={time} onChangeText={setTime} />
+          </View>
+
+          {/* Lieu */}
+          <TextInput className="bg-gray-100 rounded-xl px-4 py-3 text-gray-900 mb-4"
+            placeholder="Lieu (optionnel)" value={location} onChangeText={setLocation} />
+
+          {/* Couleur */}
+          <Text className="text-xs font-semibold text-gray-500 uppercase mb-2">Couleur</Text>
+          <View className="flex-row mb-5" style={{ gap: 10 }}>
+            {PRESET_COLORS.map(c => (
+              <TouchableOpacity key={c} onPress={() => setColor(c)}
+                style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: c,
+                  borderWidth: color === c ? 3 : 0, borderColor: '#111' }} />
+            ))}
+          </View>
+
+          {/* Actions */}
+          <View className="flex-row" style={{ gap: 8 }}>
+            <TouchableOpacity onPress={() => { reset(); onClose(); }} className="flex-1 bg-gray-100 rounded-xl py-3 items-center">
+              <Text className="text-gray-700 font-semibold">Annuler</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleCreate} disabled={saving} className="flex-1 bg-blue-600 rounded-xl py-3 items-center">
+              <Text className="text-white font-semibold">{saving ? 'Création...' : 'Créer'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
